@@ -28,7 +28,36 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 - **Dev tooling** — no-cache Python dev server ([serve.py](serve.py)) and `window.DEBUG` flag for
   logging Han's position.
 
-## [Unreleased] — Roadmap
+## [Unreleased]
+
+### Added
+- **Tutorial overlay** — a Tutorial button on the HUD opens a concise how-to-play modal that pauses
+  the game (it also explains the crack-count clue, which is no longer spelled out on screen).
+- **Strike-in-focus key** — `↑` strikes whichever mirror is centered in view.
+- **Martial-arts strike sound** — a whip-crack "kiai" accent plays on every successful hit.
+- Dev server accepts an optional port argument (`python3 serve.py 8643`).
+
+### Changed
+- **Six mirrors on screen** — panes now tile edge-to-edge with no gaps between frames.
+- **Mirrors renumbered 0–9** (was 1–10) so labels match the number keys exactly.
+- **Han redesigned** — brown top and khaki pants, black glove on the right hand, and the hand sabre
+  is now four thin blades on a white shirt cuff, worn on his left hand.
+- **Missed mirrors crack instead of shattering** — a miss leaves cracked glass whose crack count
+  *exactly* equals Han's distance (the stray micro-cracks that inflated the count are gone), and the
+  red clue numbers were removed — the cracks are the only clue.
+- **Slower, clearer hit feedback** — Han's reveal lingers about twice as long, and the lost health
+  chip blinks white/red for an extended beat on both health bars.
+- **End-screen copy** — victory now reads "Destroy the image and you will break the enemy"; defeat
+  reads "Defeat — You failed to stop Han. The Shaolin Temple is disgraced. Will you continue the
+  fight?". The camera returns to mirror 1 when a new game starts.
+
+### Fixed
+- Blurry centered text — the pixel font now always renders on whole pixels.
+
+### Removed
+- The arc camera view (and its `V` toggle); the rotating 360° view is the only camera.
+
+### Roadmap
 
 Ideas from the [master design spec](SPEC.md), not yet built:
 

@@ -9,6 +9,34 @@ completion via the `logbook` skill — only when a real decision was made, not f
 
 ---
 
+## 2026-07-19 — Cracks ARE the clue: exact count, no numeric label
+**Decision:** A missed mirror stays a pane of (cracked) glass — no shattered-out black hole — with
+*exactly* `circDist` crack lines (1–5) and no red clue number on the pane or minimap. The tutorial
+modal explains the mechanic instead.
+**Why:** v1 feedback: the black hole + glass chips read as destruction, not information, and the
+extra "micro-cracks" made the count lie (position 3 showing 4 lines). Once the count is exact, a
+numeric label is redundant — and removing it restores the read-the-glass fantasy the game is built
+on. Hit panes keep the burst-through hole so "he was HERE" stays visually distinct from "clue".
+**Rejected:**
+- *Keep the numeric labels alongside exact cracks* — double-encoding; players stop reading cracks.
+- *Cap displayed cracks at 4 ("4+" convention)* — capping reintroduces ambiguity the feedback
+  explicitly complained about; 5 lines for the opposite mirror is unambiguous.
+**Affects:** `js/game.js` (`renderBrokenBuffer`, `resolveStrike`, `drawMinimap`), tutorial copy.
+
+## 2026-07-19 — Six mirrors via gapless tiling, not projection compression
+**Decision:** Fit six mirrors on screen by having each pane span its full 36° slot (neighbors share
+an edge — zero gap) and widening the projection's edge mapping to ±108°, rather than compressing the
+whole camera curve.
+**Why:** Feedback asked for six mirrors *without decreasing mirror width*. Compressing the
+projection shrinks every pane; removing the inter-pane gap (v1 panes covered only 26° of their 36°
+slot) reclaims that width for the mirrors themselves, and perspective foreshortening still sells the
+curve of the ring.
+**Rejected:**
+- *Compress the angular mapping only* — narrows every mirror ~25%, directly against the feedback.
+- *Decouple center spacing from pane width* — keeps exact v1 width but panes would overlap or float;
+  gapless tiling is simpler and looks like a real mirror wall.
+**Affects:** `js/game.js` (`projR`, `computeQuads`).
+
 ## 2026-07-19 — Two-lane logbook, captured at task completion
 **Decision:** Keep a curated `CHANGELOG.md` (user-facing "what") *and* this `DECISIONS.md`
 (agent-facing "why"), both updated by a `logbook` skill when a unit of work lands, and surfaced back

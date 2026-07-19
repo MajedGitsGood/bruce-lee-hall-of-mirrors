@@ -28,15 +28,15 @@ line there. Release history is in **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## How to play
 
-- **Click a mirror** (or press **1–0**) to strike it.
+- **Click a mirror** (or press **0–9**) to strike it.
 - **Hit** — Han takes damage, the glass explodes, and he relocates to a random intact mirror.
   Consecutive hits build a **combo multiplier**.
-- **Miss** — you take damage and the pane is destroyed, but its **crack count tells you Han's
+- **Miss** — you take damage and the glass cracks, and the **crack count tells you Han's
   distance** around the ring:
   - 1 crack → he's in an adjacent mirror
   - 2 cracks → two positions away (either side)
   - 3 cracks → three away
-  - 4+ cracks → four or five away
+  - 5 cracks → directly opposite
 - Broken mirrors can't hide Han. The ring minimap (bottom-left) tracks every clue. Five misses and
   you're done; five hits and Han falls.
 - Score = strikes × combo, plus a time bonus for finishing fast.
@@ -47,10 +47,12 @@ line there. Release history is in **[CHANGELOG.md](CHANGELOG.md)**.
 | --- | --- |
 | Click / tap | Strike a mirror, start game |
 | Drag or ← → | Look around the ring (360° view) |
-| 1–0 | Strike mirror by number |
-| V | Toggle camera: rotating 360° view ↔ full arc view |
+| 0–9 | Strike mirror by number |
+| ↑ | Strike the mirror centered in view |
 | M | Mute |
 | Enter / Space | Start / restart |
+
+An in-game **Tutorial** button (top right) opens a how-to-play overlay.
 
 ## Run it locally
 
@@ -68,7 +70,7 @@ Then open <http://localhost:8642>.
 ## Tech notes
 
 - 480×270 canvas upscaled with `image-rendering: pixelated`; CRT scanline + vignette overlays.
-- Both camera modes share one pane-projection renderer (column-strip blitting fakes the
+- One pane-projection renderer for the rotating 360° camera (column-strip blitting fakes the
   perspective skew).
 - All sprites are drawn procedurally at load ([js/sprites.js](js/sprites.js)); all sound is
   synthesized WebAudio ([js/audio.js](js/audio.js)).

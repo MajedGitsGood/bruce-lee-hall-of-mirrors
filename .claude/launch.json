@@ -4,7 +4,7 @@
     {
       "name": "bruce-lee-game",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8642", "--directory", "."],
+      "runtimeArgs": ["serve.py"],
       "port": 8642
     }
   ]

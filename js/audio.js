@@ -122,6 +122,13 @@ const SFX = (() => {
     }
   }
 
+  function kiai() { // martial-arts strike accent — whip-crack + short "shout"
+    if (!ac) return;
+    noise(0.08, 0.5, 'bandpass', 1800, 4200, 0, 3);
+    tone('sawtooth', 620, 180, 0.16, 0.3, 0.02);
+    tone('square', 310, 120, 0.12, 0.12, 0.03);
+  }
+
   function laugh() {
     if (!ac) return;
     for (let i = 0; i < 3; i++) {
@@ -196,7 +203,7 @@ const SFX = (() => {
 
   return {
     init, setMuted, get muted() { return muted; },
-    whoosh, impact, shatter, gong, hanHurt, heroHurt, comboSting,
+    whoosh, impact, shatter, gong, hanHurt, heroHurt, comboSting, kiai,
     laugh, uiTick, gongStart, victory, defeat, tallyTick,
     droneStart, droneStop,
   };
