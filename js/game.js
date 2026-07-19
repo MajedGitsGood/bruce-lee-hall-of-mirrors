@@ -84,6 +84,7 @@ function startGame() {
   SFX.droneStart();
   resetGame();
   state = 'play';
+  if (window.track) track('game-started');
 }
 
 // ============================================================
@@ -411,6 +412,7 @@ function beginVictory() {
   const timeBonus = Math.max(0, Math.floor((300 - elapsed)) * 5);
   victoryAnim = { t: 0, timeBonus, total: score + timeBonus, cascadeDone: false };
   score += timeBonus;
+  if (window.track) track('game-won', { score: victoryAnim.total, seconds: Math.floor(elapsed) });
   SFX.droneStop();
   setTimeout(() => SFX.victory(), 900);
 }
@@ -423,6 +425,7 @@ function beginDefeat() {
     t: 0,
     cracks: FX.genCracks(W / 2, H / 2, W, H, 7, (Math.random() * 1e9) | 0, 5),
   };
+  if (window.track) track('game-lost', { score: score, seconds: Math.floor(elapsed) });
   SFX.droneStop();
   SFX.defeat();
 }

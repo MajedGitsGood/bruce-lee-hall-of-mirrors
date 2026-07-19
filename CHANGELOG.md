@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Opt-in, privacy-first telemetry** — a vendor-agnostic `track(event, props)` layer
+  ([js/telemetry.js](js/telemetry.js)) that records core gameplay events (started / won / lost) and
+  reports JS errors. Cookie-free, respects Do Not Track, and **inert until configured** — the game
+  stays fully self-contained until you add a GoatCounter code + Sentry DSN. See
+  [docs/TELEMETRY.md](docs/TELEMETRY.md).
+
 ## [1.0.0] — 2026-07-19
 
 First public release. A complete, playable homage to the *Enter the Dragon* mirror-room duel —
@@ -28,15 +37,8 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 - **Dev tooling** — no-cache Python dev server ([serve.py](serve.py)) and `window.DEBUG` flag for
   logging Han's position.
 
-## [Unreleased] — Roadmap
+> Roadmap and future ideas live in the [README](README.md#roadmap) and the [master spec](SPEC.md) —
+> they're intentionally kept out of the changelog, which records only what has shipped.
 
-Ideas from the [master design spec](SPEC.md), not yet built:
-
-- Progressive body damage — hero takes visible cuts, villain bleeds as health depletes.
-- Spinning spear **intro** and impaled **exit** animations, with movie-quote audio.
-- Victory / replay animations.
-- Difficulty slider — tune health, pane count, and score multiplier.
-- Leveling, unlockable cosmetics, and leaderboards / weekly high-score contests.
-- Exploratory Web3 layer — NFT characters, skins, and animations *(concept only)*.
-
+[Unreleased]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/releases/tag/v1.0.0
