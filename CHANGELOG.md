@@ -31,8 +31,10 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 ## [Unreleased]
 
 ### Added
-- **Tutorial overlay** — a Tutorial button on the HUD opens a concise how-to-play modal that pauses
-  the game (it also explains the crack-count clue, which is no longer spelled out on screen).
+- **Tutorial overlay** — a Tutorial button on the HUD opens a how-to-play modal that pauses the
+  game: four numbered steps (including the crack-count clue, which is no longer spelled out on
+  screen) plus a pixel-art control diagram — mouse, arrow keys, and number keys drawn as keycaps
+  with a cycling highlight.
 - **Strike-in-focus key** — `↑` strikes whichever mirror is centered in view.
 - **Martial-arts strike sound** — a whip-crack "kiai" accent plays on every successful hit.
 - Dev server accepts an optional port argument (`python3 serve.py 8643`).
