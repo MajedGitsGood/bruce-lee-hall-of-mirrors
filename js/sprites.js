@@ -1,0 +1,293 @@
+'use strict';
+/* Procedural pixel-art sprites + a 4x5 bitmap font. All drawn in code, no assets. */
+const SPR = (() => {
+
+  function canvas(w, h) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = false;
+    return c;
+  }
+
+  // ============================================================
+  // 4x5 pixel font
+  // ============================================================
+  const G = {
+    A:[6,9,15,9,9], B:[14,9,14,9,14], C:[7,8,8,8,7], D:[14,9,9,9,14],
+    E:[15,8,14,8,15], F:[15,8,14,8,8], G:[7,8,11,9,7], H:[9,9,15,9,9],
+    I:[14,4,4,4,14], J:[3,1,1,9,6], K:[9,10,12,10,9], L:[8,8,8,8,15],
+    M:[9,15,15,9,9], N:[9,13,15,11,9], O:[6,9,9,9,6], P:[14,9,14,8,8],
+    Q:[6,9,9,10,5], R:[14,9,14,10,9], S:[7,8,6,1,14], T:[14,4,4,4,4],
+    U:[9,9,9,9,6], V:[9,9,9,10,4], W:[9,9,15,15,9], X:[9,9,6,9,9],
+    Y:[9,9,6,4,4], Z:[15,1,6,8,15],
+    '0':[6,9,11,13,6], '1':[4,12,4,4,14], '2':[14,1,6,8,15], '3':[14,1,6,1,14],
+    '4':[9,9,15,1,1], '5':[15,8,14,1,14], '6':[7,8,14,9,6], '7':[15,1,2,4,4],
+    '8':[6,9,6,9,6], '9':[6,9,7,1,14],
+    ' ':[0,0,0,0,0], '.':[0,0,0,0,4], ':':[0,4,0,4,0], '!':[4,4,4,0,4],
+    '-':[0,0,14,0,0], 'x':[0,9,6,9,0], '+':[0,4,14,4,0], '/':[1,2,4,8,8],
+    '>':[8,4,2,4,8], '<':[2,4,8,4,2], "'":[4,4,0,0,0], '?':[14,1,6,0,4],
+    '=':[0,14,0,14,0],
+  };
+
+  function text(ctx, str, x, y, scale, col, align = 'left') {
+    str = String(str).toUpperCase();
+    const w = str.length * 5 * scale;
+    let ox = x;
+    if (align === 'center') ox = x - w / 2;
+    else if (align === 'right') ox = x - w;
+    ctx.fillStyle = col;
+    for (let ci = 0; ci < str.length; ci++) {
+      const g = G[str[ci]] || G['?'];
+      for (let r = 0; r < 5; r++) {
+        const bits = g[r];
+        for (let b = 0; b < 4; b++) {
+          if (bits & (8 >> b)) {
+            ctx.fillRect(ox + (ci * 5 + b) * scale, y + r * scale, scale, scale);
+          }
+        }
+      }
+    }
+    return w;
+  }
+  function textW(str, scale) { return String(str).length * 5 * scale; }
+
+  // ============================================================
+  // HAN — 26x46 sprite, poses: idle, taunt, hurt
+  // ============================================================
+  const HAN_W = 26, HAN_H = 46;
+
+  function drawHanInto(c, pose) {
+    const OUT = '#16121a', SKIN = '#d19a62', SKIN2 = '#a56b3a',
+      HAIR = '#585d66', HAIR2 = '#3e434b',
+      ROBE = '#4d5f6d', ROBE2 = '#36454f', ROBE3 = '#66798a',
+      RED = '#a32638', CLAW = '#c3ccd4', CLAWH = '#f2f8fc', DK = '#1c1410';
+    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+    const hurt = pose === 'hurt';
+    const taunt = pose === 'taunt';
+    const L = hurt ? 2 : 0;          // torso lean
+    const hy = 2 + (hurt ? 2 : 0);   // head y
+
+    // ---- robe skirt / legs ----
+    px(7, 27, 12, 15, ROBE);
+    px(7, 27, 3, 15, ROBE2);
+    px(16, 27, 3, 15, ROBE3);
+    px(6, 40, 14, 2, ROBE2);          // hem
+    px(8, 42, 3, 2, DK); px(14, 42, 3, 2, DK); // shoes
+    // center slit
+    px(12, 30, 1, 11, ROBE2);
+
+    // ---- torso ----
+    px(6 + L, 16, 14, 12, ROBE);
+    px(6 + L, 16, 4, 12, ROBE2);
+    px(16 + L, 16, 3, 12, ROBE3);
+    px(6 + L, 25, 14, 2, RED);        // sash
+    px(12 + L, 16, 1, 9, ROBE3);      // frog-button line
+    px(5 + L, 14, 16, 3, ROBE);       // shoulders
+    px(5 + L, 14, 4, 3, ROBE2);
+
+    // ---- left arm (viewer left) hangs down ----
+    px(4 + L, 17, 3, 8, ROBE2);
+    px(4 + L, 25, 3, 3, SKIN);
+    px(4 + L, 27, 3, 1, SKIN2);
+
+    // ---- right arm: CLAW ----
+    if (hurt) {
+      // both arms drop, claw low
+      px(19 + L, 17, 3, 8, ROBE2);
+      px(19 + L, 25, 3, 3, SKIN);
+      px(19 + L, 28, 1, 4, CLAW); px(21 + L, 28, 1, 4, CLAW);
+    } else {
+      const raise = taunt ? 4 : 0;
+      px(18 + L, 15 - raise, 3, 4, ROBE3);            // upper arm
+      px(19 + L, 11 - raise, 3, 5, ROBE2);            // forearm
+      px(20 + L, 8 - raise, 3, 3, SKIN);              // hand
+      // claw prongs
+      px(19 + L, 3 - raise, 1, 5, CLAW);
+      px(21 + L, 2 - raise, 1, 6, CLAWH);
+      px(23 + L, 3 - raise, 1, 5, CLAW);
+      // prong tips
+      px(19 + L, 2 - raise, 1, 1, CLAWH);
+      px(23 + L, 2 - raise, 1, 1, CLAWH);
+    }
+
+    // ---- head ----
+    const hx = 9 + L;
+    px(hx, hy, 8, 11, SKIN);
+    px(hx, hy, 8, 3, HAIR);            // slicked-back hair
+    px(hx, hy, 8, 1, HAIR2);
+    px(hx - 1, hy + 1, 1, 2, HAIR2);   // temple
+    px(hx + 8, hy + 1, 1, 2, HAIR2);
+    px(hx + 6, hy + 3, 2, 6, SKIN2);   // face shading right
+    // heavy angled brows (menace)
+    px(hx + 1, hy + 4, 3, 1, HAIR2);
+    px(hx + 5, hy + 4, 3, 1, HAIR2);
+    px(hx + 3, hy + 5, 1, 1, HAIR2);
+    px(hx + 5, hy + 5, 1, 1, HAIR2);
+    // narrow slit eyes
+    if (hurt) {
+      px(hx + 1, hy + 5, 2, 1, DK);    // squeezed shut
+      px(hx + 6, hy + 5, 2, 1, DK);
+    } else {
+      px(hx + 1, hy + 5, 1, 1, '#e8e4da');
+      px(hx + 2, hy + 5, 1, 1, '#131019');
+      px(hx + 6, hy + 5, 1, 1, '#e8e4da');
+      px(hx + 7, hy + 5, 1, 1, '#131019');
+    }
+    // scar down right cheek
+    px(hx + 7, hy + 2, 1, 4, '#8a4a52');
+    // nose
+    px(hx + 4, hy + 6, 1, 1, SKIN2);
+    // moustache
+    px(hx + 2, hy + 7, 5, 1, HAIR2);
+    // mouth
+    if (hurt) px(hx + 3, hy + 8, 3, 2, '#3d1216');
+    else px(hx + 3, hy + 8, 3, 1, '#7a4530');
+    // goatee
+    px(hx + 3, hy + 9, 3, 1, HAIR2);
+    px(hx + 4, hy + 10, 2, 2, HAIR2);
+    // neck
+    px(hx + 2, hy + 11, 4, 2, SKIN2);
+    // collar
+    px(hx + 1, hy + 12, 6, 2, RED);
+  }
+
+  function makeHan(pose) {
+    const c = canvas(HAN_W, HAN_H);
+    drawHanInto(c.getContext('2d'), pose);
+    return c;
+  }
+
+  function whiteVersion(src) {
+    const c = canvas(src.width, src.height);
+    const x = c.getContext('2d');
+    x.drawImage(src, 0, 0);
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, src.width, src.height);
+    return c;
+  }
+
+  const han = {
+    idle: makeHan('idle'),
+    taunt: makeHan('taunt'),
+    hurt: makeHan('hurt'),
+  };
+  han.hurtWhite = whiteVersion(han.hurt);
+  han.idleWhite = whiteVersion(han.idle);
+
+  // ============================================================
+  // BRUCE fist (first-person strike) — 40x34
+  // ============================================================
+  function makeFist(mirror) {
+    const c = canvas(40, 34);
+    const x = c.getContext('2d');
+    const SKIN = '#e0a86e', SKIN2 = '#b57a42', SKIN3 = '#8e5a2e', WRAP = '#23252e';
+    const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+    // forearm — solid diagonal from fist to bottom-right corner
+    for (let s = 0; s < 5; s++) {
+      px(12 + s * 6, 11 + s * 5, 18, 13, SKIN);
+      px(12 + s * 6, 11 + s * 5 + 10, 18, 3, SKIN2); // underside shade
+    }
+    // wrist wrap
+    px(17, 16, 12, 4, WRAP);
+    px(20, 20, 12, 4, '#33363f');
+    // scratch marks (Enter the Dragon!)
+    px(27, 24, 2, 8, '#a32638'); px(31, 26, 2, 8, '#a32638'); px(35, 29, 2, 5, '#8e1626');
+    // fist
+    px(2, 2, 17, 15, SKIN);
+    px(0, 5, 3, 9, SKIN);            // thumb side
+    px(2, 2, 17, 3, SKIN2);          // knuckle top shade
+    // knuckle bumps
+    px(3, 1, 3, 2, SKIN); px(7, 0, 3, 2, SKIN); px(11, 0, 3, 2, SKIN); px(15, 1, 3, 2, SKIN);
+    px(3, 4, 3, 1, SKIN3); px(7, 3, 3, 1, SKIN3); px(11, 3, 3, 1, SKIN3); px(15, 4, 3, 1, SKIN3);
+    // finger creases
+    px(3, 9, 15, 1, SKIN2);
+    px(3, 13, 15, 1, SKIN2);
+    px(0, 13, 3, 2, SKIN2);          // thumb shade
+    if (!mirror) return c;
+    const m = canvas(40, 34);
+    const mx = m.getContext('2d');
+    mx.translate(40, 0); mx.scale(-1, 1);
+    mx.drawImage(c, 0, 0);
+    return m;
+  }
+  const fistR = makeFist(false);
+  const fistL = makeFist(true);
+
+  // ============================================================
+  // Bruce title silhouette (flying kick) — 120x80
+  // ============================================================
+  function makeBruceSilhouette() {
+    const c = canvas(120, 80);
+    const x = c.getContext('2d');
+    x.fillStyle = '#0a0508';
+    x.strokeStyle = '#0a0508';
+    x.lineCap = 'round';
+    x.lineJoin = 'round';
+    // torso (leaning back)
+    x.lineWidth = 11;
+    x.beginPath(); x.moveTo(38, 52); x.lineTo(30, 30); x.stroke();
+    // head
+    x.beginPath(); x.arc(28, 21, 7, 0, Math.PI * 2); x.fill();
+    // kicking leg — extended
+    x.lineWidth = 9;
+    x.beginPath(); x.moveTo(38, 52); x.lineTo(78, 40); x.stroke();
+    // foot
+    x.fillRect(76, 33, 14, 10);
+    // folded leg
+    x.beginPath(); x.moveTo(38, 52); x.lineTo(46, 64); x.lineTo(34, 70); x.stroke();
+    // guard arms
+    x.lineWidth = 7;
+    x.beginPath(); x.moveTo(31, 33); x.lineTo(50, 26); x.stroke();
+    x.beginPath(); x.moveTo(31, 36); x.lineTo(14, 44); x.stroke();
+    // fists
+    x.beginPath(); x.arc(52, 25, 4.5, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(12, 45, 4.5, 0, Math.PI * 2); x.fill();
+    return c;
+  }
+  const bruceSil = makeBruceSilhouette();
+
+  // ============================================================
+  // Portraits 14x14 (HUD)
+  // ============================================================
+  function makePortraitBruce() {
+    const c = canvas(14, 14);
+    const x = c.getContext('2d');
+    const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+    px(0, 0, 14, 14, '#241018');
+    px(3, 2, 8, 10, '#e0a86e');           // face
+    px(3, 1, 8, 3, '#15130f');            // hair
+    px(2, 2, 1, 4, '#15130f');
+    px(11, 2, 1, 4, '#15130f');
+    px(4, 6, 2, 1, '#131019'); px(8, 6, 2, 1, '#131019'); // eyes
+    px(5, 9, 4, 1, '#8e5a2e');            // mouth
+    px(9, 4, 1, 5, '#a32638');            // claw scratch
+    px(10, 4, 1, 5, '#a32638');
+    return c;
+  }
+  function makePortraitHan() {
+    const c = canvas(14, 14);
+    const x = c.getContext('2d');
+    const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+    px(0, 0, 14, 14, '#241018');
+    px(3, 2, 8, 10, '#d19a62');
+    px(3, 1, 8, 2, '#585d66');            // grey hair
+    px(4, 6, 2, 1, '#131019'); px(8, 6, 2, 1, '#131019');
+    px(3, 5, 3, 1, '#3e434b'); px(8, 5, 3, 1, '#3e434b'); // brows
+    px(6, 10, 3, 2, '#3e434b');           // goatee
+    px(10, 3, 1, 5, '#8a4a52');           // scar
+    return c;
+  }
+  const portraitBruce = makePortraitBruce();
+  const portraitHan = makePortraitHan();
+
+  return {
+    text, textW,
+    han, HAN_W, HAN_H,
+    fistR, fistL,
+    bruceSil,
+    portraitBruce, portraitHan,
+    canvas,
+  };
+})();
