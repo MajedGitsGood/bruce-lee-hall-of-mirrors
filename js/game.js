@@ -161,7 +161,7 @@ function renderIntactBuffer(t) {
   let alpha = 0.92;
   if (flicker > 0) alpha *= 0.25 + Math.random() * 0.75;
   c.globalAlpha = alpha;
-  c.drawImage(spr, 0, 0, SPR.HAN_W, SPR.HAN_H, 6 + sway, 8 + bob, SPR.HAN_W * 2, SPR.HAN_H * 2);
+  c.drawImage(spr, 0, 0, SPR.HAN_W, SPR.HAN_H, 6 + sway, 8 + bob, SPR.HAN_W, SPR.HAN_H);
   c.globalAlpha = 1;
 
   // moving specular sheen

@@ -42,8 +42,9 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 ### Changed
 - **Six mirrors on screen** — panes now tile edge-to-edge with no gaps between frames.
 - **Mirrors renumbered 0–9** (was 1–10) so labels match the number keys exactly.
-- **Han redesigned** — brown top and khaki pants, black glove on the right hand, and the hand sabre
-  is now four thin blades on a white shirt cuff, worn on his left hand.
+- **Han redesigned** — brown top and khaki pants with no red accents, clean-shaven, black glove on
+  the right hand, and the hand sabre is now four needle-thin blades on a white shirt cuff, worn on
+  his left hand (the sprite doubled its internal resolution to draw them that thin).
 - **Missed mirrors crack instead of shattering** — a miss leaves cracked glass whose crack count
   *exactly* equals Han's distance (the stray micro-cracks that inflated the count are gone), and the
   red clue numbers were removed — the cracks are the only clue.

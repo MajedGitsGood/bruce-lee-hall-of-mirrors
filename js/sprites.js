@@ -95,18 +95,21 @@ const SPR = (() => {
   }
 
   // ============================================================
-  // HAN — 26x46 sprite, poses: idle, taunt, hurt
+  // HAN — 52x92 sprite (2x internal grid so the blades can be
+  // half-pixel thin), poses: idle, taunt, hurt
   // ============================================================
-  const HAN_W = 26, HAN_H = 46;
+  const HAN_W = 52, HAN_H = 92;
 
   function drawHanInto(c, pose) {
-    const OUT = '#16121a', SKIN = '#d19a62', SKIN2 = '#a56b3a',
+    const SKIN = '#d19a62', SKIN2 = '#a56b3a',
       HAIR = '#585d66', HAIR2 = '#3e434b',
       TOP = '#6e4526', TOP2 = '#513218', TOP3 = '#8a5c33',
       PANTS = '#a8996a', PANTS2 = '#847752', PANTS3 = '#c2b485',
-      RED = '#a32638', CLAW = '#c3ccd4', CLAWH = '#f2f8fc', DK = '#1c1410',
+      BELT = '#3a2412', CLAW = '#c3ccd4', CLAWH = '#f2f8fc', DK = '#1c1410',
       CUFF = '#e9edf2', GLOVE = '#141419';
-    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+    const S = 2; // internal grid scale
+    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x * S, y * S, w * S, h * S); };
+    const pxr = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); }; // raw (half-grid) px
     const hurt = pose === 'hurt';
     const taunt = pose === 'taunt';
     const L = hurt ? 2 : 0;          // torso lean
@@ -125,7 +128,7 @@ const SPR = (() => {
     px(6 + L, 16, 14, 12, TOP);
     px(6 + L, 16, 4, 12, TOP2);
     px(16 + L, 16, 3, 12, TOP3);
-    px(6 + L, 25, 14, 2, RED);        // sash
+    px(6 + L, 25, 14, 2, BELT);       // dark belt
     px(12 + L, 16, 1, 9, TOP3);       // frog-button line
     px(5 + L, 14, 16, 3, TOP);        // shoulders
     px(5 + L, 14, 4, 3, TOP2);
@@ -135,26 +138,26 @@ const SPR = (() => {
     px(19 + L, 25, 3, 3, GLOVE);
     px(19 + L, 27, 3, 1, '#0b0b10');
 
-    // ---- left arm (his blade hand): four thin blades on a white cuff ----
+    // ---- left arm (his blade hand): four needle blades on a white cuff ----
     if (hurt) {
       // both arms drop, blades hang low
       px(4 + L, 17, 3, 8, TOP2);
-      px(3 + L, 25, 5, 2, CUFF);
-      px(2 + L, 27, 1, 4, CLAW); px(4 + L, 27, 1, 5, CLAWH);
-      px(6 + L, 27, 1, 5, CLAW); px(8 + L, 27, 1, 4, CLAWH);
+      px(3 + L, 25, 6, 2, CUFF);
+      for (let k = 0; k < 4; k++) {
+        pxr((3 + L) * S + 1 + k * 3, 27 * S, 1, 8 + (k % 2 ? 2 : 0), k % 2 ? CLAWH : CLAW);
+      }
     } else {
       const raise = taunt ? 4 : 0;
       px(5 + L, 15 - raise, 3, 4, TOP3);              // upper arm
       px(4 + L, 11 - raise, 3, 5, TOP2);              // forearm
       px(2 + L, 9 - raise, 7, 2, CUFF);               // white shirt cuff
-      // four thin blades
-      px(2 + L, 4 - raise, 1, 5, CLAW);
-      px(4 + L, 3 - raise, 1, 6, CLAWH);
-      px(6 + L, 3 - raise, 1, 6, CLAW);
-      px(8 + L, 4 - raise, 1, 5, CLAWH);
-      // blade tips
-      px(2 + L, 3 - raise, 1, 1, CLAWH);
-      px(8 + L, 3 - raise, 1, 1, CLAWH);
+      // four needle blades — 1 raw px (half a body pixel) wide
+      const bx0 = (2 + L) * S, byTop = (9 - raise) * S;
+      for (let k = 0; k < 4; k++) {
+        const len = 11 + (k % 2 ? 2 : 0);
+        pxr(bx0 + 1 + k * 4, byTop - len, 1, len, k % 2 ? CLAWH : CLAW);
+        pxr(bx0 + 1 + k * 4, byTop - len, 1, 2, CLAWH); // bright tip
+      }
     }
 
     // ---- head ----
@@ -184,18 +187,15 @@ const SPR = (() => {
     px(hx + 7, hy + 2, 1, 4, '#8a4a52');
     // nose
     px(hx + 4, hy + 6, 1, 1, SKIN2);
-    // moustache
-    px(hx + 2, hy + 7, 5, 1, HAIR2);
-    // mouth
+    // mouth (clean-shaven)
     if (hurt) px(hx + 3, hy + 8, 3, 2, '#3d1216');
     else px(hx + 3, hy + 8, 3, 1, '#7a4530');
-    // goatee
-    px(hx + 3, hy + 9, 3, 1, HAIR2);
-    px(hx + 4, hy + 10, 2, 2, HAIR2);
+    // chin shading
+    px(hx + 3, hy + 10, 3, 1, SKIN2);
     // neck
     px(hx + 2, hy + 11, 4, 2, SKIN2);
     // collar
-    px(hx + 1, hy + 12, 6, 2, RED);
+    px(hx + 1, hy + 12, 6, 2, TOP2);
   }
 
   function makeHan(pose) {
