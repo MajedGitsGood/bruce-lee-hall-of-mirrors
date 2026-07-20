@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-07-20
+
 ### Added
 - **Tutorial overlay** — a Tutorial button on the HUD opens a how-to-play modal that pauses the
   game: four numbered steps (including how to read the red distance numbers) plus a pixel-art
@@ -71,5 +73,6 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 > Roadmap and future ideas live in the [README](README.md#roadmap) and the [master spec](SPEC.md) —
 > they're intentionally kept out of the changelog, which records only what has shipped.
 
-[Unreleased]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/releases/tag/v1.1.0
 [1.0.0]: https://github.com/MajedGitsGood/bruce-lee-hall-of-mirrors/releases/tag/v1.0.0
