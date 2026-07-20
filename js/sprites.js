@@ -142,21 +142,22 @@ const SPR = (() => {
     if (hurt) {
       // both arms drop, blades hang low
       px(4 + L, 17, 3, 8, TOP2);
-      px(3 + L, 25, 6, 2, CUFF);
+      pxr((4 + L) * S - 1, 25 * S, 8, 4, CUFF);       // wrist-width cuff
       for (let k = 0; k < 4; k++) {
-        pxr((3 + L) * S + 1 + k * 3, 27 * S, 1, 8 + (k % 2 ? 2 : 0), k % 2 ? CLAWH : CLAW);
+        pxr((4 + L) * S + k * 2, 27 * S, 1, 8 + (k % 2 ? 2 : 0), k % 2 ? CLAWH : CLAW);
       }
     } else {
       const raise = taunt ? 4 : 0;
       px(5 + L, 15 - raise, 3, 4, TOP3);              // upper arm
       px(4 + L, 11 - raise, 3, 5, TOP2);              // forearm
-      px(2 + L, 9 - raise, 7, 2, CUFF);               // white shirt cuff
-      // four needle blades — 1 raw px (half a body pixel) wide
-      const bx0 = (2 + L) * S, byTop = (9 - raise) * S;
+      // white shirt cuff — no wider than the wrist
+      const cx0 = (4 + L) * S - 1, byTop = (9 - raise) * S;
+      pxr(cx0, byTop, 8, 4, CUFF);
+      // four needle blades packed at 1px gaps, cluster = wrist width
       for (let k = 0; k < 4; k++) {
         const len = 11 + (k % 2 ? 2 : 0);
-        pxr(bx0 + 1 + k * 4, byTop - len, 1, len, k % 2 ? CLAWH : CLAW);
-        pxr(bx0 + 1 + k * 4, byTop - len, 1, 2, CLAWH); // bright tip
+        pxr(cx0 + 1 + k * 2, byTop - len, 1, len, k % 2 ? CLAWH : CLAW);
+        pxr(cx0 + 1 + k * 2, byTop - len, 1, 2, CLAWH); // bright tip
       }
     }
 
