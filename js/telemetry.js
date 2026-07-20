@@ -12,7 +12,7 @@
 
   var CONFIG = {
     // GoatCounter site code only. e.g. 'bruce-lee' → https://bruce-lee.goatcounter.com
-    goatcounterCode: '',
+    goatcounterCode: 'hall-of-mirrors',
     // Sentry project DSN. e.g. 'https://abcd1234@o0.ingest.sentry.io/0'
     sentryDsn: '',
   };
