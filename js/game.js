@@ -72,7 +72,7 @@ function resetGame() {
   strike = null; pendingStrike = null; reveal = null;
   flicker = 0; comboPop = 0; heroFlash = 0; hanFlash = 0;
   victoryAnim = null; defeatAnim = null;
-  yaw = targetYaw = -18; // camera home: mirror 1 is the default focus
+  yaw = targetYaw = 0; // camera home: mirror 1 dead-center
   hoverPane = -1;
   FX.clearParts();
   FX.shake.trauma = 0;
@@ -92,8 +92,10 @@ function startGame() {
 // LAYOUT / PROJECTION  (rotating 360 camera, panes tiled edge-to-edge)
 // ============================================================
 function projR(a) {
-  // rel ±108 maps to the screen edges so six gapless mirrors fit at once
-  return W / 2 + 240 * Math.sin(a * 0.75 * D2R) / Math.sin(81 * D2R);
+  // one mirror always dead-center: rel ±126 maps to the screen edges so
+  // seven gapless mirrors fit (center + three per side)
+  const k = clamp(a * 0.7, -90, 90);
+  return W / 2 + 240 * Math.sin(k * D2R) / Math.sin(88.2 * D2R);
 }
 function hRot(a) {
   const c = Math.max(0.05, Math.cos(a * D2R));
@@ -105,7 +107,7 @@ function computeQuads() {
   const order = [];
   for (let i = 0; i < NUM; i++) {
     const rel = wrap180(i * 36 - yaw);
-    if (Math.abs(rel) > 120) continue;
+    if (Math.abs(rel) > 130) continue;
     // panes span the full 36° slot: neighbors share an edge, no gap
     const xL = projR(rel - 18), xR = projR(rel + 18);
     if (xR < -12 || xL > W + 12) continue;
@@ -230,40 +232,27 @@ function renderBrokenBuffer(idx, t) {
   const pane = panes[idx];
   const c = brokenBufs[idx].c.getContext('2d');
   c.clearRect(0, 0, PW, PH);
-  if (pane.brokenBy === 'miss') {
-    // cracked (not shattered) glass — dimmed mirror, no reflection of Han
-    const g = c.createLinearGradient(0, 0, 0, PH);
-    g.addColorStop(0, '#1c2833');
-    g.addColorStop(0.5, '#0f171f');
-    g.addColorStop(1, '#181117');
-    c.fillStyle = g;
-    c.fillRect(3, 3, PW - 6, PH - 6);
-    c.fillStyle = 'rgba(120,40,50,0.07)';
-    c.fillRect(8, 6, 6, PH - 12);
-    c.fillRect(PW - 16, 6, 5, PH - 12);
-    // clue cracks — count = distance to Han
-    if (pane.cracks) {
-      const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + idx);
-      FX.drawCracks(c, pane.cracks, 0, 0, 1, 1, '#e8d5d8', 1,
-        `rgba(230,60,70,${0.25 + 0.3 * pulse})`);
+  // shattered: dark hole with remnant glass teeth
+  const g = c.createRadialGradient(PW / 2, PH / 2, 4, PW / 2, PH / 2, PH * 0.7);
+  g.addColorStop(0, '#140a10');
+  g.addColorStop(1, '#060309');
+  c.fillStyle = g;
+  c.fillRect(3, 3, PW - 6, PH - 6);
+  if (pane.jag) {
+    c.fillStyle = 'rgba(170,200,215,0.45)';
+    c.strokeStyle = 'rgba(230,245,250,0.5)';
+    c.lineWidth = 1;
+    for (const tr of pane.jag) {
+      c.beginPath();
+      c.moveTo(tr[0], tr[1]); c.lineTo(tr[2], tr[3]); c.lineTo(tr[4], tr[5]);
+      c.closePath(); c.fill(); c.stroke();
     }
-  } else {
-    // hit — Han burst through: dark hole with remnant glass teeth
-    const g = c.createRadialGradient(PW / 2, PH / 2, 4, PW / 2, PH / 2, PH * 0.7);
-    g.addColorStop(0, '#140a10');
-    g.addColorStop(1, '#060309');
-    c.fillStyle = g;
-    c.fillRect(3, 3, PW - 6, PH - 6);
-    if (pane.jag) {
-      c.fillStyle = 'rgba(170,200,215,0.45)';
-      c.strokeStyle = 'rgba(230,245,250,0.5)';
-      c.lineWidth = 1;
-      for (const tr of pane.jag) {
-        c.beginPath();
-        c.moveTo(tr[0], tr[1]); c.lineTo(tr[2], tr[3]); c.lineTo(tr[4], tr[5]);
-        c.closePath(); c.fill(); c.stroke();
-      }
-    }
+  }
+  // miss clue — red number in the middle = Han's distance in mirrors
+  if (pane.brokenBy === 'miss' && pane.clue > 0) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + idx);
+    SPR.text(c, String(pane.clue), PW / 2, PH / 2 - 6, 2,
+      `rgba(255,90,100,${0.65 + 0.3 * pulse})`, 'center');
   }
   drawFrame(c, true);
   // flipped
@@ -332,15 +321,14 @@ function resolveStrike() {
   const q = paneQuads[i];
   pane.intact = false;
   pane.brokenBy = isHit ? 'hit' : 'miss';
-  if (isHit) pane.jag = genJag(pane.seed);
+  pane.jag = genJag(pane.seed);
   if (q) {
     const qc = quadCenter(q);
-    // a miss only cracks the glass — lighter debris than a full shatter
-    FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, isHit ? 55 : 18, isHit ? 1.1 : 0.8);
+    FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, 55, isHit ? 1.1 : 1.35);
     FX.spawnSparks(qc.x, qc.y, 10);
   }
   SFX.impact();
-  SFX.shatter(isHit ? 1 : 0.6);
+  SFX.shatter(isHit ? 1 : 1.25);
 
   if (isHit) {
     hanHP--; hits++;
@@ -365,13 +353,7 @@ function resolveStrike() {
     heroHP--;
     combo = 0;
     heroFlash = 1.5;
-    const d = circDist(i, hanAt);
-    pane.clue = d;
-    const r = FX.rng(pane.seed);
-    // crack count is the clue: exactly d lines, no extra micro-cracks
-    pane.cracks = FX.genCracks(
-      PW / 2 + (r() - 0.5) * 14, PH / 2 + (r() - 0.5) * 20,
-      PW, PH * 0.7, d, pane.seed, 0);
+    pane.clue = circDist(i, hanAt); // shown as the red distance number
     FX.shake.add(0.7);
     FX.flash.red = 0.9;
     setTimeout(() => SFX.heroHurt(), 80);
@@ -536,6 +518,11 @@ function drawScene(t) {
     const pane = panes[q.i];
     drawPaneReflection(pane.intact ? intactFlip : brokenBufs[q.i].f, q);
   }
+  // the mirror closest to center is the one ↑ strikes — mark it
+  let focusI = -1, focusRel = 1e9;
+  for (const q of order) {
+    if (Math.abs(q.rel) < focusRel) { focusRel = Math.abs(q.rel); focusI = q.i; }
+  }
   // panes far -> near
   for (const q of order) {
     const pane = panes[q.i];
@@ -543,8 +530,14 @@ function drawScene(t) {
     // pane number plate (mirrors 1-9 then 0, matching the number keys)
     const qc = quadCenter(q);
     const yTop = q.yMid - Math.max(q.hL, q.hR) / 2;
+    const focused = q.i === focusI && state === 'play';
     SPR.text(ctx, String((q.i + 1) % 10), qc.x, yTop - 8, 1,
-      pane.intact ? 'rgba(216,168,80,0.75)' : 'rgba(120,90,60,0.55)', 'center');
+      focused ? '#ffe9b0' : pane.intact ? 'rgba(216,168,80,0.75)' : 'rgba(120,90,60,0.55)', 'center');
+    if (focused) { // small chevron pointing down at the centered mirror
+      ctx.fillStyle = '#ffe9b0';
+      ctx.fillRect(Math.round(qc.x) - 2, yTop - 14, 4, 1);
+      ctx.fillRect(Math.round(qc.x) - 1, yTop - 13, 2, 1);
+    }
     // hover highlight
     if (state === 'play' && !strike && q.i === hoverPane && pane.intact) {
       ctx.strokeStyle = 'rgba(255,220,120,0.9)';
@@ -683,6 +676,9 @@ function drawMinimap(t) {
     } else if (pane.brokenBy === 'miss') {
       ctx.fillStyle = '#57131d';
       ctx.fillRect(dx - 2, dy - 2, 4, 4);
+      SPR.text(ctx, String(pane.clue), dx + (Math.cos(a) > 0.3 ? 5 : Math.cos(a) < -0.3 ? -5 : 0),
+        dy + (Math.sin(a) > 0.3 ? 5 : Math.sin(a) < -0.3 ? -8 : -2), 1, '#ff5a64',
+        Math.cos(a) > 0.3 ? 'left' : Math.cos(a) < -0.3 ? 'right' : 'center');
     } else {
       ctx.fillStyle = '#3d2c16';
       ctx.fillRect(dx - 2, dy - 2, 4, 4);
@@ -906,7 +902,10 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerup', e => {
   const wasDrag = pointer.dragging;
   pointer.down = false; pointer.dragging = false;
-  if (wasDrag) return;
+  if (wasDrag) { // settle on the nearest mirror so one is always centered
+    targetYaw = Math.round(targetYaw / 36) * 36;
+    return;
+  }
   const p = canvasPos(e);
   handleClick(p.x, p.y);
 });
@@ -1040,7 +1039,7 @@ function drawMouseIcon(x, y, hot) {
 function drawTutorial(t) {
   ctx.fillStyle = 'rgba(5,2,6,0.82)';
   ctx.fillRect(0, 0, W, H);
-  const bx = 16, by = 62, bw = W - 32, bh = 146;
+  const bx = 10, by = 56, bw = W - 20, bh = 158;
   ctx.fillStyle = 'rgba(20,8,12,0.95)';
   ctx.fillRect(bx, by, bw, bh);
   ctx.strokeStyle = '#7a5326';
@@ -1050,29 +1049,29 @@ function drawTutorial(t) {
 
   SPR.text(ctx, 'HOW TO PLAY', W / 2, by + 10, 2, '#ffd985', 'center');
 
-  // numbered steps — compact font, one per line, full panel width
+  // numbered steps — one per line, full panel width
   const BODY = '#e8d5b0';
   const steps = [
     '1. STRIKE THE MIRRORS TO FIND AND DEFEAT HAN',
     '2. HITTING HAN REDUCES HIS HEALTH BUT HE WILL HIDE BEHIND A NEW MIRROR',
-    '3. MISSING HAN REDUCES YOUR HEALTH BUT THE MIRROR CRACKS WITH CLUES TO HIS NEW POSITION',
-    '4. 1 CRACK = 1 AWAY   2 CRACKS = 2 AWAY   3 CRACKS = 3 AWAY   4+ CRACKS = FAR AWAY',
+    '3. MISSING HAN REDUCES YOUR HEALTH BUT THE MIRROR BREAKS WITH CLUES TO HIS POSITION',
+    '4. THE RED NUMBER SHOWS HOW MANY MIRRORS AWAY HAN IS',
   ];
-  let y = by + 30;
+  let y = by + 28;
   for (const s of steps) {
-    SPR.textSmall(ctx, s, bx + 14, y, BODY, 'left');
-    y += 9;
+    SPR.text(ctx, s, bx + 12, y, 1, BODY, 'left');
+    y += 11;
   }
 
   // controls, keycap-style — highlight cycles through the three groups
   const hot = Math.floor(t / 1.4) % 3;
-  const ky = by + 74;
+  const ky = by + 82;
   const LBL = (i) => hot === i ? '#ffe9b0' : '#9b8b6a';
 
   // mouse
   drawMouseIcon(118, ky, hot === 0);
-  SPR.textSmall(ctx, 'CLICK - STRIKE', 128, ky + 31, LBL(0), 'center');
-  SPR.textSmall(ctx, 'DRAG - LOOK', 128, ky + 39, LBL(0), 'center');
+  SPR.text(ctx, 'CLICK - STRIKE', 128, ky + 31, 1, LBL(0), 'center');
+  SPR.text(ctx, 'DRAG - LOOK', 128, ky + 41, 1, LBL(0), 'center');
 
   // arrow cluster
   const ac = 240, ks = 15;
@@ -1082,19 +1081,19 @@ function drawTutorial(t) {
   drawArrowGlyph(ac - ks - 2, ky + ks - 2 + ks / 2, 'left', LBL(1));
   drawKeycap(ac + ks / 2 + 2, ky + ks - 2, ks, ks, hot === 1);
   drawArrowGlyph(ac + ks + 2, ky + ks - 2 + ks / 2, 'right', LBL(1));
-  SPR.textSmall(ctx, 'UP - STRIKE CENTER', ac, ky + 31, LBL(1), 'center');
-  SPR.textSmall(ctx, 'LEFT RIGHT - LOOK', ac, ky + 39, LBL(1), 'center');
+  SPR.text(ctx, 'UP - STRIKE CENTER', ac, ky + 31, 1, LBL(1), 'center');
+  SPR.text(ctx, 'LEFT RIGHT - LOOK', ac, ky + 41, 1, LBL(1), 'center');
 
   // number + sound keys
   const kc = 352;
   drawKeycap(kc - 22, ky + 3, 26, ks, hot === 2);
-  SPR.textSmall(ctx, '0-9', kc - 9, ky + 8, LBL(2), 'center');
+  SPR.text(ctx, '0-9', kc - 9, ky + 8, 1, LBL(2), 'center');
   drawKeycap(kc + 8, ky + 3, ks, ks, hot === 2);
-  SPR.textSmall(ctx, 'M', kc + 15, ky + 8, LBL(2), 'center');
-  SPR.textSmall(ctx, '0-9 - STRIKE', kc, ky + 31, LBL(2), 'center');
-  SPR.textSmall(ctx, 'M - SOUND', kc, ky + 39, LBL(2), 'center');
+  SPR.text(ctx, 'M', kc + 15, ky + 8, 1, LBL(2), 'center');
+  SPR.text(ctx, '0-9 - STRIKE', kc, ky + 31, 1, LBL(2), 'center');
+  SPR.text(ctx, 'M - SOUND', kc, ky + 41, 1, LBL(2), 'center');
 
-  SPR.textSmall(ctx, 'CLICK ANYWHERE TO CLOSE', W / 2, by + bh - 11, 'rgba(232,213,176,0.6)', 'center');
+  SPR.text(ctx, 'CLICK ANYWHERE TO CLOSE', W / 2, by + bh - 12, 1, 'rgba(232,213,176,0.6)', 'center');
 }
 
 // ============================================================

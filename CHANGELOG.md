@@ -32,22 +32,23 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
 
 ### Added
 - **Tutorial overlay** — a Tutorial button on the HUD opens a how-to-play modal that pauses the
-  game: four numbered steps (including the crack-count clue, which is no longer spelled out on
-  screen) plus a pixel-art control diagram — mouse, arrow keys, and number keys drawn as keycaps
-  with a cycling highlight.
+  game: four numbered steps (including how to read the red distance numbers) plus a pixel-art
+  control diagram — mouse, arrow keys, and number keys drawn as keycaps with a cycling highlight.
 - **Strike-in-focus key** — `↑` strikes whichever mirror is centered in view.
 - **Martial-arts strike sound** — a whip-crack "kiai" accent plays on every successful hit.
 - Dev server accepts an optional port argument (`python3 serve.py 8643`).
 
 ### Changed
-- **Six mirrors on screen** — panes now tile edge-to-edge with no gaps between frames.
+- **Seven mirrors on screen, one always centered** — panes tile edge-to-edge with no gaps, the
+  camera snaps to the nearest mirror after a drag, and a chevron marks the centered mirror that
+  `↑` strikes.
 - **Mirrors renumbered 0–9** (was 1–10) so labels match the number keys exactly.
 - **Han redesigned** — brown top and khaki pants with no red accents, clean-shaven, black glove on
   the right hand, and the hand sabre is now four needle-thin blades on a white shirt cuff, worn on
   his left hand (the sprite doubled its internal resolution to draw them that thin).
-- **Missed mirrors crack instead of shattering** — a miss leaves cracked glass whose crack count
-  *exactly* equals Han's distance (the stray micro-cracks that inflated the count are gone), and the
-  red clue numbers were removed — the cracks are the only clue.
+- **Miss clues are an exact red distance number** — a missed pane shatters and shows Han's distance
+  as a pulsing red number in the middle (exact 1–5; the old `4+` cap is gone). A crack-count-only
+  clue system was prototyped and reverted pending a better crack visual.
 - **Slower, clearer hit feedback** — Han's reveal lingers about twice as long, and the lost health
   chip blinks white/red for an extended beat on both health bars.
 - **End-screen copy** — victory now reads "Destroy the image and you will break the enemy"; defeat

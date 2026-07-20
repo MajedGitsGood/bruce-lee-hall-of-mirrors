@@ -9,6 +9,19 @@ completion via the `logbook` skill — only when a real decision was made, not f
 
 ---
 
+## 2026-07-19 — REVERSAL: red distance numbers restored as the miss clue
+**Decision:** A missed pane shatters (black hole + glass teeth, as v1) and shows Han's distance as
+a red number centered in the pane, mirrored on the minimap. The crack-count-only clue (entry below)
+is reverted. Numbers are exact 1–5 — the v1 `4+` cap is gone.
+**Why:** Playtesting the crack-count clue showed it doesn't read — counting radiating crack lines
+mid-game is slow and ambiguous compared to a glanceable digit. The user wants numbers shipped now
+while a better crack visual is designed; the tutorial explains hints as numbers.
+**Rejected:**
+- *Cracks + numbers together* — double-encoding, and the cracks under test weren't readable anyway.
+- *Keeping the `4+` cap* — a digit costs nothing to display exactly; the cap only lost information.
+**Affects:** `js/game.js` (`renderBrokenBuffer`, `resolveStrike`, `drawMinimap`, tutorial copy).
+Supersedes "Cracks ARE the clue" below.
+
 ## 2026-07-19 — Cracks ARE the clue: exact count, no numeric label
 **Decision:** A missed mirror stays a pane of (cracked) glass — no shattered-out black hole — with
 *exactly* `circDist` crack lines (1–5) and no red clue number on the pane or minimap. The tutorial

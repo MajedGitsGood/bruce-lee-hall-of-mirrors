@@ -31,12 +31,8 @@ line there. Release history is in **[CHANGELOG.md](CHANGELOG.md)**.
 - **Click a mirror** (or press **0–9**) to strike it.
 - **Hit** — Han takes damage, the glass explodes, and he relocates to a random intact mirror.
   Consecutive hits build a **combo multiplier**.
-- **Miss** — you take damage and the glass cracks, and the **crack count tells you Han's
-  distance** around the ring:
-  - 1 crack → he's in an adjacent mirror
-  - 2 cracks → two positions away (either side)
-  - 3 cracks → three away
-  - 5 cracks → directly opposite
+- **Miss** — you take damage and the pane shatters, leaving a **red number that tells you Han's
+  distance** around the ring: 1 = an adjacent mirror, up to 5 = directly opposite.
 - Broken mirrors can't hide Han. The ring minimap (bottom-left) tracks every clue. Five misses and
   you're done; five hits and Han falls.
 - Score = strikes × combo, plus a time bonus for finishing fast.
