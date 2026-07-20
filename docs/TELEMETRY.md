@@ -30,11 +30,14 @@ No cookie banner is required — GoatCounter sets no cookies and collects no per
 ## 2. Errors — Sentry (free tier)
 
 1. Create a free account at <https://sentry.io>, make a **Browser / JavaScript** project.
-2. Copy its **DSN** (looks like `https://abcd1234@o0.ingest.sentry.io/0`).
-3. In `js/telemetry.js`, set `sentryDsn: '<your DSN>'`.
+2. Sentry shows a **Loader Script** like
+   `<script src="https://js.sentry-cdn.com/7ef6b74427e0503050a60984c08151a5.min.js"></script>`.
+   Copy just the **hex key** from that URL (the part before `.min.js`).
+3. In `js/telemetry.js`, set `sentryLoaderKey: '<that key>'`.
 
-The loader is injected only when a DSN is present, and Sentry is configured with `sendDefaultPii:
-false`.
+The loader is injected only when a key is present; it lazy-loads the SDK, buffers any error thrown
+before it's ready, and is configured with `sendDefaultPii: false`. (Prefer the raw DSN? You can adapt
+`initSentry()` in `telemetry.js` — the loader path is just less setup for a no-build site.)
 
 ## 3. Ship it
 

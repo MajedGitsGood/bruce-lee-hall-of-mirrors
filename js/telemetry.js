@@ -13,8 +13,9 @@
   var CONFIG = {
     // GoatCounter site code only. e.g. 'bruce-lee' → https://bruce-lee.goatcounter.com
     goatcounterCode: 'hall-of-mirrors',
-    // Sentry project DSN. e.g. 'https://abcd1234@o0.ingest.sentry.io/0'
-    sentryDsn: '',
+    // Sentry Loader key — the hex in the loader script Sentry gives you:
+    // <script src="https://js.sentry-cdn.com/THIS_KEY.min.js"></script>
+    sentryLoaderKey: '7ef6b74427e0503050a60984c08151a5',
   };
 
   // Respect Do Not Track for analytics (not for crash reports — those carry no personal data here).
@@ -52,14 +53,14 @@
 
   // ── Sentry (crash/error reporting, no-build loader) ───────────────────────────
   function initSentry() {
-    if (!CONFIG.sentryDsn) return;
-    var m = CONFIG.sentryDsn.match(/^https?:\/\/([^@]+)@/);
-    if (!m) return; // malformed DSN → skip rather than break the page
+    if (!CONFIG.sentryLoaderKey) return;
+    // The loader lazy-loads the SDK and buffers errors thrown before it's ready. Defining
+    // sentryOnLoad means we control init options; the DSN is already baked into the loader.
     window.sentryOnLoad = function () {
-      window.Sentry.init({ dsn: CONFIG.sentryDsn, sendDefaultPii: false, tracesSampleRate: 0 });
+      window.Sentry.init({ sendDefaultPii: false, tracesSampleRate: 0 });
     };
     var s = document.createElement('script');
-    s.src = 'https://js.sentry-cdn.com/' + m[1] + '.min.js';
+    s.src = 'https://js.sentry-cdn.com/' + CONFIG.sentryLoaderKey + '.min.js';
     s.crossOrigin = 'anonymous';
     document.head.appendChild(s);
   }
