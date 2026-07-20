@@ -1,6 +1,8 @@
 # Hall of Mirrors — Bruce vs Han
 
-A playable pixel-art homage to the final mirror-room duel of *Enter the Dragon*.
+A playable pixel-art homage to the final mirror-room duel of *Enter the Dragon*:
+https://www.youtube.com/watch?v=mCdbIDiib5U
+
 Han hides behind one of ten mirrors that ring the room — every intact pane shows his
 reflection, but only one is real. Read the cracks, find him, break the illusion.
 
