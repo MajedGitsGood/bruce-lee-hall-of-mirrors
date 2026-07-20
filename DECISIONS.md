@@ -9,6 +9,27 @@ completion via the `logbook` skill — only when a real decision was made, not f
 
 ---
 
+## 2026-07-20 — Cinematics are stylized in-engine sequences, not film recreations
+**Decision:** The v2 opening and victory cinematics play inside the game's own first-person mirror
+renderer: the "revolving door" is the centered pane squash-flipping on a cosine, Han "enters the
+mirrors" by cross-fading his lone figure into every pane's reflection alpha, and the impale reuses
+the wall-mounted spear sprite + camera spin. New art is limited to three sprites (shirtless Bruce,
+spear + pennant, impaled Han pose) in the existing 2x-grid style. The intro is skippable with any
+input, and only plays from the title screen — restarts go straight to the fight.
+**Why:** One art style keeps the game cohesive and the assets tiny (everything stays procedural);
+the film beats read clearly even translated into the game's own visual language. Skippable +
+title-only means the cinematic never taxes replays.
+**Rejected:**
+- *Faithful side-view recreation of the film shots* — a second art style and large bespoke pixel
+  scenes for ~10 seconds of footage; heavy asset cost and it would visually clash with everything
+  around it.
+- *Skipping the intro by default (opt-in cinematic)* — the intro plants the spear the victory pays
+  off; first-time players should see it, so it plays once and stays skippable.
+- *Replaying the intro on every restart* — pure friction after the first viewing.
+**Affects:** `js/game.js` (state machine `'intro'`, `updateIntro`/`drawIntro`, victory phases
+`spin → impale → tally`), `js/sprites.js` (`bruce`, `spear`, Han `impaled` pose),
+`js/audio.js` (`doorCreak`, `impale`).
+
 ## 2026-07-19 — REVERSAL: red distance numbers restored as the miss clue
 **Decision:** A missed pane shatters (black hole + glass teeth, as v1) and shows Han's distance as
 a red number centered in the pane, mirrored on the minimap. The crack-count-only clue (entry below)

@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Opening cinematic** — after CLICK TO ENTER, the centered mirror revolves like the film's
+  spinning panel and Han steps through it, dissolves into every pane at once, the camera pans past
+  a wall-mounted spear with a yellow/red pennant, and Bruce's reflection — shirtless, with his
+  trademark claw cuts — appears as your fists rise into guard. Skippable with any click or key;
+  replays go straight to the fight.
+- **Victory impale cinematic** — on the final hit the mirror wall revolves through two full
+  rotations while the remaining panes shatter in cascade, then the spin decelerates onto the
+  mounted spear: Han hangs impaled on it, pinned to the wall, before the score tally fades in.
+- **Spear on the mirror wall** — a spear with a yellow/red cloth pennant is mounted at the seam
+  between mirrors 0 and 9, visible all game long (the intro plants it; the victory pays it off).
+
+### Fixed
+- The dev server now serves the game's own directory regardless of the launch working directory.
+
 ## [1.1.0] — 2026-07-20
 
 ### Added

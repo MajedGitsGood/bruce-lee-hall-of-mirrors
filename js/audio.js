@@ -173,6 +173,21 @@ const SFX = (() => {
     tone('square', 1320, 1320, 0.03, 0.04);
   }
 
+  function doorCreak() { // revolving mirror-panel: slow groan + hinge squeal
+    if (!ac) return;
+    noise(0.9, 0.22, 'bandpass', 300, 900, 0, 4);
+    tone('sawtooth', 90, 140, 0.8, 0.06);
+    tone('sine', 62, 48, 0.9, 0.1);
+  }
+
+  function impale() { // heavy flesh-thud: low sine drop + noise burst
+    if (!ac) return;
+    tone('sine', 120, 35, 0.5, 1.0);
+    noise(0.25, 0.6, 'lowpass', 2200, 300);
+    noise(0.12, 0.4, 'bandpass', 900, 500, 0.02, 2);
+    tone('sawtooth', 200, 60, 0.4, 0.18, 0.05);
+  }
+
   function droneStart() {
     if (!ac || droneNodes) return;
     const t = ac.currentTime;
@@ -205,6 +220,7 @@ const SFX = (() => {
     init, setMuted, get muted() { return muted; },
     whoosh, impact, shatter, gong, hanHurt, heroHurt, comboSting, kiai,
     laugh, uiTick, gongStart, victory, defeat, tallyTick,
+    doorCreak, impale,
     droneStart, droneStop,
   };
 })();

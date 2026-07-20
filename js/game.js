@@ -30,7 +30,7 @@ function fmtTime(s) { s = Math.floor(s); return `${(s / 60) | 0}:${String(s % 60
 function pad(n, w) { return String(n | 0).padStart(w, '0'); }
 
 // ---------- state ----------
-let state = 'title'; // title | play | victory | defeat
+let state = 'title'; // title | intro | play | victory | defeat
 let panes = [];      // {intact, brokenBy, clue, cracks, jag, seed}
 let hanAt = 0, heroHP = 5, hanHP = 5;
 let combo = 0, maxCombo = 0, hits = 0, score = 0;
@@ -47,6 +47,10 @@ let victoryAnim = null, defeatAnim = null;
 let paneQuads = new Array(NUM).fill(null);
 let redPulseT = 0;
 let titleT = 0;
+// intro cinematic
+let intro = null;        // {t, ...one-shot flags}
+let introHanAlpha = 1;   // multiplier on Han's reflection in intact panes (0 during intro beat A)
+const SPEAR_ANG = 342;   // wall angle of the mounted spear: the seam between mirrors 0 and 9
 
 // ---------- pane content buffers ----------
 const PW = 64, PH = 104;
@@ -72,6 +76,7 @@ function resetGame() {
   strike = null; pendingStrike = null; reveal = null;
   flicker = 0; comboPop = 0; heroFlash = 0; hanFlash = 0;
   victoryAnim = null; defeatAnim = null;
+  intro = null; introHanAlpha = 1;
   yaw = targetYaw = 0; // camera home: mirror 1 dead-center
   hoverPane = -1;
   FX.clearParts();
@@ -79,14 +84,50 @@ function resetGame() {
   if (window.DEBUG) console.log('[DEBUG] Han is behind pane', (hanAt + 1) % 10);
 }
 
-function startGame() {
+function startGame(withIntro = false) {
   if (window.DEBUG) console.log('[DEBUG] startGame', new Error().stack.split('\n')[2]);
   SFX.init();
-  SFX.gongStart();
   SFX.droneStart();
   resetGame();
+  if (withIntro) {
+    // opening cinematic: Han enters through the revolving door
+    state = 'intro';
+    intro = { t: 0 };
+    introHanAlpha = 0;
+    if (window.track) track('intro-started');
+  } else {
+    state = 'play';
+    SFX.gongStart();
+    if (window.track) track('game-started');
+  }
+}
+
+function endIntro() {
+  intro = null;
+  introHanAlpha = 1;
+  yaw = targetYaw = 0;
   state = 'play';
+  FX.flash.white = 0.75;
+  SFX.gongStart();
   if (window.track) track('game-started');
+}
+
+// ---------- intro cinematic (skippable) ----------
+// Beat A 0–2.2s   the centered pane revolves like a door; Han steps through
+// Beat B 2.2–3.8s Han dissolves — his reflection floods every mirror
+// Beat C 3.8–5.2s camera pans to reveal the wall-mounted spear
+// Beat D 5.2–7.2s Bruce's reflection appears; your fists rise into guard
+function updateIntro(dt) {
+  intro.t += dt;
+  const it = intro.t;
+  const fire = (key, at, fn) => { if (!intro[key] && it >= at) { intro[key] = true; fn(); } };
+  fire('creak1', 0.05, () => SFX.doorCreak());
+  fire('creak2', 1.15, () => SFX.doorCreak());
+  if (it >= 2.2) introHanAlpha = clamp((it - 2.4) / 1.1, 0, 1);
+  fire('laugh', 2.6, () => SFX.laugh());
+  fire('panC', 3.8, () => { targetYaw = SPEAR_ANG - 360; SFX.whoosh(); }); // -18: seam centered
+  fire('panD', 5.2, () => { targetYaw = 0; SFX.whoosh(); });
+  if (it >= 7.2) endIntro();
 }
 
 // ============================================================
@@ -161,7 +202,7 @@ function renderIntactBuffer(t) {
   const spr = taunting ? SPR.han.taunt : SPR.han.idle;
   const sway = Math.round(Math.sin(t * 1.15) * 2);
   const bob = Math.round(Math.sin(t * 2.3) * 1);
-  let alpha = 0.92;
+  let alpha = 0.92 * introHanAlpha; // reflections fade in during the intro
   if (flicker > 0) alpha *= 0.25 + Math.random() * 0.75;
   c.globalAlpha = alpha;
   c.drawImage(spr, 0, 0, SPR.HAN_W, SPR.HAN_H, 6 + sway, 8 + bob, SPR.HAN_W, SPR.HAN_H);
@@ -387,11 +428,18 @@ function beginVictory() {
   state = 'victory';
   pendingStrike = null;
   const timeBonus = Math.max(0, Math.floor((300 - elapsed)) * 5);
-  victoryAnim = { t: 0, timeBonus, total: score + timeBonus, cascadeDone: false };
+  // the wall revolves: two full rotations, decelerating onto the spear seam
+  const remaining = [];
+  for (let i = 0; i < NUM; i++) if (panes[i].intact) remaining.push(i);
+  victoryAnim = {
+    t: 0, phase: 'spin', timeBonus, total: score + timeBonus,
+    yaw0: yaw,
+    yawEnd: yaw + 720 + ((SPEAR_ANG - yaw) % 360 + 360) % 360,
+    cascade: remaining.map((i, n) => ({ i, at: 0.25 + n * 0.18, done: false })),
+  };
   score += timeBonus;
   if (window.track) track('game-won', { score: victoryAnim.total, seconds: Math.floor(elapsed) });
   SFX.droneStop();
-  setTimeout(() => SFX.victory(), 900);
 }
 
 function beginDefeat() {
@@ -410,27 +458,43 @@ function beginDefeat() {
 function updateVictory(dt) {
   const v = victoryAnim;
   v.t += dt;
-  // cascade: remaining panes shatter one by one
-  if (!v.cascadeDone) {
-    let k = 0, done = true;
-    for (let i = 0; i < NUM; i++) {
-      if (!panes[i].intact) continue;
-      done = false;
-      if (v.t > 0.5 + k * 0.14) {
-        panes[i].intact = false;
-        panes[i].brokenBy = 'hit';
-        panes[i].jag = genJag(panes[i].seed);
-        const q = paneQuads[i];
-        if (q) {
-          const qc = quadCenter(q);
-          FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, 30, 0.9);
-        }
-        FX.shake.add(0.25);
-        SFX.shatter(0.55);
+  const SPIN_T = 2.2;
+  if (v.phase === 'spin') {
+    // the mirror wall revolves — ease-out over two full rotations
+    const k = clamp(v.t / SPIN_T, 0, 1);
+    const e = 1 - Math.pow(1 - k, 3);
+    yaw = targetYaw = lerp(v.yaw0, v.yawEnd, e);
+    // remaining panes shatter in cascade while the wall spins
+    for (const c of v.cascade) {
+      if (c.done || v.t < c.at) continue;
+      c.done = true;
+      panes[c.i].intact = false;
+      panes[c.i].brokenBy = 'hit';
+      panes[c.i].jag = genJag(panes[c.i].seed);
+      const q = paneQuads[c.i];
+      if (q) {
+        const qc = quadCenter(q);
+        FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, 30, 0.9);
       }
-      k++;
+      FX.shake.add(0.25);
+      SFX.shatter(0.55);
     }
-    if (done) v.cascadeDone = true;
+    if (v.t >= SPIN_T) {
+      // IMPALE — the spin lands Han on the mounted spear
+      v.phase = 'impale';
+      yaw = targetYaw = v.yawEnd;
+      for (const c of v.cascade) { // anything left breaks silently
+        if (!c.done) { c.done = true; panes[c.i].intact = false; panes[c.i].brokenBy = 'hit'; panes[c.i].jag = genJag(panes[c.i].seed); }
+      }
+      FX.hitStop(140);
+      FX.shake.add(0.8);
+      FX.flash.white = 0.9;
+      SFX.impale();
+      setTimeout(() => SFX.gong(), 90);
+    }
+  } else if (v.phase === 'impale' && v.t >= 3.6) {
+    v.phase = 'tally';
+    SFX.victory();
   }
 }
 
@@ -459,7 +523,9 @@ function update(dt, t) {
 
   if (state === 'title') { titleT += dt; return; }
 
-  if (state === 'play') {
+  if (state === 'intro') {
+    updateIntro(dt);
+  } else if (state === 'play') {
     elapsed += dt;
     tauntT += dt;
     if (tauntT > 8) { tauntT = 0; }
@@ -530,11 +596,11 @@ function drawScene(t) {
   for (const q of order) {
     const pane = panes[q.i];
     drawPaneQuad(pane.intact ? intactBuf : brokenBufs[q.i].c, q);
-    // pane number plate (mirrors 1-9 then 0, matching the number keys)
+    // pane number plate (mirrors 1-9 then 0, matching the number keys; hidden in cinematics)
     const qc = quadCenter(q);
     const yTop = q.yMid - Math.max(q.hL, q.hR) / 2;
     const focused = q.i === focusI && state === 'play';
-    SPR.text(ctx, String((q.i + 1) % 10), qc.x, yTop - 8, 1,
+    if (state !== 'intro') SPR.text(ctx, String((q.i + 1) % 10), qc.x, yTop - 8, 1,
       focused ? '#ffe9b0' : pane.intact ? 'rgba(216,168,80,0.75)' : 'rgba(120,90,60,0.55)', 'center');
     if (focused) { // small chevron pointing down at the centered mirror
       ctx.fillStyle = '#ffe9b0';
@@ -558,6 +624,9 @@ function drawScene(t) {
     }
   }
 
+  // the wall-mounted spear (Chekhov's gun — planted in the intro, fired at victory)
+  drawSpear(t);
+
   // Han reveal — he really WAS behind that glass
   if (reveal) {
     const q = paneQuads[reveal.pane];
@@ -578,6 +647,112 @@ function drawScene(t) {
       ctx.globalAlpha = 1;
     }
   }
+}
+
+function fillQuad(q, col, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(q.xL, q.yMid - q.hL / 2); ctx.lineTo(q.xR, q.yMid - q.hR / 2);
+  ctx.lineTo(q.xR, q.yMid + q.hR / 2); ctx.lineTo(q.xL, q.yMid + q.hL / 2);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawSpear(t) {
+  const rel = wrap180(SPEAR_ANG - yaw);
+  if (Math.abs(rel) > 115) return;
+  const x = projR(rel);
+  const h = hRot(rel);
+  const sc = h / 190;
+  const buf = SPR.spear[Math.floor(t * 5) % 2]; // pennant flutter
+  const w = SPR.SPEAR_W * sc, hh = SPR.SPEAR_H * sc;
+  ctx.drawImage(buf, Math.round(x - w / 2), Math.round(134 - h / 2 + 30 * sc), w, hh);
+}
+
+// Han pinned to the wall on the spear (victory impale + tally backdrop)
+function drawImpaledHan(v) {
+  const settle = 1 - Math.pow(1 - clamp((v.t - 2.2) / 0.35, 0, 1), 2);
+  const fit = 1.25;
+  const rw = SPR.HAN_W * fit, rh = SPR.HAN_H * fit;
+  const spearY = 134 - 190 / 2 + 30;                     // matches drawSpear at center
+  const spearCy = spearY + SPR.SPEAR_H / 2;
+  const yTop = spearCy - 42 * fit - 10 + settle * 10;    // slides down, settles on the shaft
+  ctx.drawImage(SPR.han.impaled, Math.round(W / 2 - rw / 2), Math.round(yTop), rw, rh);
+  // blade end re-drawn IN FRONT: the spear runs through him
+  const buf = SPR.spear[0];
+  ctx.drawImage(buf, SPR.SPEAR_W - 26, 0, 26, SPR.SPEAR_H,
+    Math.round(W / 2 + SPR.SPEAR_W / 2 - 26), spearY, 26, SPR.SPEAR_H);
+}
+
+// ---------- intro cinematic drawing ----------
+function drawIntroOverlay(it, t) {
+  const q = paneQuads[0]; // the centered pane (mirror 0) is the revolving door
+  // Beat A — the panel revolves; Han steps through the dark opening
+  if (it < 2.3 && q) {
+    const qc = quadCenter(q);
+    const k = clamp(it / 2.2, 0, 1);
+    const e = 1 - Math.pow(1 - k, 3);
+    fillQuad(q, '#040207', 1); // doorway blackness behind the spinning panel
+    const theta = e * Math.PI * 2;
+    const sx = Math.abs(Math.cos(theta));
+    const w2 = (q.xR - q.xL) * sx / 2;
+    if (w2 > 0.6) {
+      const dq = { xL: qc.x - w2, xR: qc.x + w2, hL: qc.h, hR: qc.h, yMid: q.yMid };
+      drawPaneQuad(intactBuf, dq);
+      if (Math.cos(theta) < 0) fillQuad(dq, '#050308', 0.45); // back face reads darker
+    }
+  }
+  // Han in the flesh — walks in, then dissolves into the mirrors (beat B)
+  if (it > 0.9 && it < 3.4 && q) {
+    const qc = quadCenter(q);
+    const grow = clamp((it - 0.9) / 1.3, 0, 1);
+    const e = 1 - (1 - grow) * (1 - grow);
+    const fit = Math.min(qc.h / SPR.HAN_H, (q.xR - q.xL) / SPR.HAN_W) * 0.92;
+    const sc = fit * lerp(0.4, 1, e);
+    const rw = SPR.HAN_W * sc, rh = SPR.HAN_H * sc;
+    let alpha = 1;
+    if (it > 2.3) alpha = clamp(1 - (it - 2.3) / 0.9, 0, 1);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(SPR.han.idle, qc.x - rw / 2, q.yMid - rh / 2 + rh * 0.06, rw, rh);
+    ctx.globalAlpha = 1;
+  }
+  // Beat D — the glass clears: BRUCE's reflection, and your fists rise
+  if (it > 5.4 && q) {
+    const k = clamp((it - 5.4) / 0.7, 0, 1);
+    fillQuad(q, '#17222e', 0.75 * k);
+    const qc = quadCenter(q);
+    const fit = Math.min(qc.h / SPR.BRUCE_H, (q.xR - q.xL) / SPR.BRUCE_W) * 0.92;
+    const rw = SPR.BRUCE_W * fit, rh = SPR.BRUCE_H * fit;
+    ctx.globalAlpha = 0.92 * k;
+    ctx.drawImage(SPR.bruce, qc.x - rw / 2, q.yMid - rh / 2 + rh * 0.06, rw, rh);
+    ctx.globalAlpha = 1;
+  }
+  if (it > 5.6) {
+    const k = clamp((it - 5.6) / 1.0, 0, 1);
+    const e = 1 - Math.pow(1 - k, 3);
+    const fy = lerp(H + 45, H - 34, e);
+    ctx.drawImage(SPR.fistR, 352, fy + Math.sin(t * 2.1 + 1.2) * 2, 46, 39);
+    ctx.drawImage(SPR.fistL, 82, fy + Math.sin(t * 2.1) * 2, 46, 39);
+  }
+}
+
+function drawIntro(t) {
+  const it = intro.t;
+  drawBackground(t);
+  drawScene(t);
+  FX.drawParts(ctx);
+  drawIntroOverlay(it, t);
+  // ambient red pulse
+  const pa = 0.045 + 0.03 * Math.sin(redPulseT * 0.8);
+  ctx.fillStyle = `rgba(150,15,30,${pa})`;
+  ctx.fillRect(0, 0, W, H);
+  applyFlashes();
+  drawUIButtons();
+  if (it > 0.8 && Math.floor(t * 1.6) % 2 === 0) {
+    SPR.text(ctx, 'CLICK TO SKIP', W - 8, H - 10, 1, 'rgba(155,139,106,0.6)', 'right');
+  }
+  if (tutorialOpen) drawTutorial(t);
 }
 
 function drawFists(t) {
@@ -759,8 +934,8 @@ function tallyLine(label, value, y, t, startT, isTime) {
 
 function drawVictory(t) {
   const v = victoryAnim;
-  if (v.t < 1.4) return; // let the cascade play out
-  const k = clamp((v.t - 1.4) / 0.5, 0, 1);
+  if (v.t < 3.7) return; // let the spin + impale play out
+  const k = clamp((v.t - 3.7) / 0.5, 0, 1);
   ctx.fillStyle = `rgba(5,2,6,${0.72 * k})`;
   ctx.fillRect(0, 0, W, H);
   const pulse = 1 + Math.sin(t * 3) * 0.02;
@@ -768,7 +943,7 @@ function drawVictory(t) {
   SPR.text(ctx, 'VICTORY', W / 2 + 3, 62 + 3, scale, '#57131d', 'center');
   SPR.text(ctx, 'VICTORY', W / 2, 62, scale, pulse > 1 ? '#ffe9b0' : '#ffd985', 'center');
   SPR.text(ctx, 'DESTROY THE IMAGE AND YOU WILL BREAK THE ENEMY', W / 2, 100, 1, '#ffd985', 'center');
-  const t2 = v.t - 1.9;
+  const t2 = v.t - 4.2;
   tallyLine('STRIKES', hits, 126, t2, 0, false);
   tallyLine('BEST COMBO', maxCombo, 140, t2, 0.4, false);
   tallyLine('TIME', fmtTime(elapsed), 154, t2, 0.8, true);
@@ -781,7 +956,7 @@ function drawVictory(t) {
     SPR.text(ctx, pad(v.total * k2, 6), W / 2 + 70, 192, 2, '#ffe9b0', 'right');
     if (k2 < 1 && Math.random() < 0.5) SFX.tallyTick();
   }
-  if (t2 > 3 && Math.floor(t * 1.6) % 2 === 0) {
+  if (t2 > 2.4 && Math.floor(t * 1.6) % 2 === 0) {
     SPR.text(ctx, 'CLICK TO FIGHT AGAIN', W / 2, 234, 1, '#ffe9b0', 'center');
   }
 }
@@ -827,6 +1002,11 @@ function render(t) {
     return;
   }
 
+  if (state === 'intro') {
+    drawIntro(t);
+    return;
+  }
+
   const off = FX.shake.offset();
   ctx.save();
   ctx.translate(Math.round(off.x), Math.round(off.y));
@@ -839,11 +1019,23 @@ function render(t) {
     ctx.translate(strike.cx, strike.cy);
     ctx.scale(z, z);
     ctx.translate(-strike.cx, -strike.cy);
+  } else if (state === 'victory' && victoryAnim.phase !== 'spin') {
+    // impale zoom punch toward the spear
+    const zt = victoryAnim.t - 2.2;
+    let z = 1;
+    if (zt < 0.2) z = 1 + (zt / 0.2) * 0.16;
+    else z = 1 + Math.max(0, 1 - (zt - 0.2) / 0.7) * 0.16;
+    if (z > 1.001) {
+      ctx.translate(W / 2, 100);
+      ctx.scale(z, z);
+      ctx.translate(-W / 2, -100);
+    }
   }
 
   drawBackground(t);
   drawScene(t);
   FX.drawParts(ctx);
+  if (state === 'victory' && victoryAnim.phase !== 'spin') drawImpaledHan(victoryAnim);
   drawFists(t);
   ctx.restore();
 
@@ -917,8 +1109,9 @@ function handleClick(x, y) {
   SFX.init();
   if (tutorialOpen) { tutorialOpen = false; SFX.uiTick(); return; }
   if (clickUIButton(x, y)) return;
-  if (state === 'title') { startGame(); return; }
-  if (state === 'victory' && victoryAnim.t > 4.5) { SFX.uiTick(); startGame(); return; }
+  if (state === 'title') { startGame(true); return; }
+  if (state === 'intro') { endIntro(); return; }
+  if (state === 'victory' && victoryAnim.t > 6.5) { SFX.uiTick(); startGame(); return; }
   if (state === 'defeat' && defeatAnim.t > 2.0) { SFX.uiTick(); startGame(); return; }
   if (state !== 'play' || strike) return;
   const i = hitTestPane(x, y);
@@ -935,10 +1128,11 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (k === 'm' || k === 'M') { toggleMute(); return; }
+  if (state === 'intro') { SFX.init(); endIntro(); return; } // any key skips the intro
   if (k === 'Enter' || k === ' ') {
     SFX.init();
-    if (state === 'title') startGame();
-    else if (state === 'victory' && victoryAnim.t > 4.5) startGame();
+    if (state === 'title') startGame(true);
+    else if (state === 'victory' && victoryAnim.t > 6.5) startGame();
     else if (state === 'defeat' && defeatAnim.t > 2.0) startGame();
     return;
   }

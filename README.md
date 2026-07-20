@@ -30,6 +30,8 @@ line there. Release history is in **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## How to play
 
+- An **opening cinematic** sets the scene — Han enters through the revolving mirror door and
+  vanishes into the glass. Click (or press any key) to skip straight to the fight.
 - **Click a mirror** (or press **0–9**) to strike it.
 - **Hit** — Han takes damage, the glass explodes, and he relocates to a random intact mirror.
   Consecutive hits build a **combo multiplier**.
@@ -76,9 +78,9 @@ Then open <http://localhost:8642>.
 
 ## Roadmap
 
-Bigger ideas from the [master spec](SPEC.md), not yet built: progressive body damage, spinning
-spear intro / impaled exit animations with movie-quote audio, a difficulty slider, and
-leaderboards. See the [changelog](CHANGELOG.md#unreleased--roadmap) for the full list.
+Bigger ideas from the [master spec](SPEC.md), not yet built: progressive body damage, movie-quote
+audio, a difficulty slider, and leaderboards. See the [changelog](CHANGELOG.md#unreleased--roadmap)
+for the full list.
 
 ## Credits & homage
 

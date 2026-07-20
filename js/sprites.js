@@ -57,7 +57,7 @@ const SPR = (() => {
 
   // ============================================================
   // HAN — 52x92 sprite (2x internal grid so the blades can be
-  // half-pixel thin), poses: idle, taunt, hurt
+  // half-pixel thin), poses: idle, taunt, hurt, impaled
   // ============================================================
   const HAN_W = 52, HAN_H = 92;
 
@@ -72,9 +72,11 @@ const SPR = (() => {
     const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x * S, y * S, w * S, h * S); };
     const pxr = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); }; // raw (half-grid) px
     const hurt = pose === 'hurt';
+    const imp = pose === 'impaled';
+    const down = hurt || imp;        // slumped: arms drop, eyes shut
     const taunt = pose === 'taunt';
-    const L = hurt ? 2 : 0;          // torso lean
-    const hy = 2 + (hurt ? 2 : 0);   // head y
+    const L = down ? 2 : 0;          // torso lean
+    const hy = 2 + (down ? 2 : 0) + (imp ? 1 : 0); // head y (impaled slumps deeper)
 
     // ---- khaki pants / legs ----
     px(7, 27, 12, 15, PANTS);
@@ -93,6 +95,12 @@ const SPR = (() => {
     px(12 + L, 16, 1, 9, TOP3);       // frog-button line
     px(5 + L, 14, 16, 3, TOP);        // shoulders
     px(5 + L, 14, 4, 3, TOP2);
+    if (imp) {                        // spear wound — dark stain spreading from the chest
+      px(10 + L, 18, 6, 3, '#8e1626');
+      px(12 + L, 19, 3, 2, '#c22b3d');
+      px(12 + L, 21, 1, 4, '#6e1120');
+      px(15 + L, 21, 1, 3, '#6e1120');
+    }
 
     // ---- right arm (viewer right) hangs down, black glove ----
     px(19 + L, 17, 3, 8, TOP2);
@@ -100,7 +108,7 @@ const SPR = (() => {
     px(19 + L, 27, 3, 1, '#0b0b10');
 
     // ---- left arm (his blade hand): four needle blades on a white cuff ----
-    if (hurt) {
+    if (down) {
       // both arms drop, blades hang low
       px(4 + L, 17, 3, 8, TOP2);
       pxr((4 + L) * S - 1, 25 * S, 8, 4, CUFF);       // wrist-width cuff
@@ -136,7 +144,7 @@ const SPR = (() => {
     px(hx + 3, hy + 5, 1, 1, HAIR2);
     px(hx + 5, hy + 5, 1, 1, HAIR2);
     // narrow slit eyes
-    if (hurt) {
+    if (down) {
       px(hx + 1, hy + 5, 2, 1, DK);    // squeezed shut
       px(hx + 6, hy + 5, 2, 1, DK);
     } else {
@@ -150,7 +158,7 @@ const SPR = (() => {
     // nose
     px(hx + 4, hy + 6, 1, 1, SKIN2);
     // mouth (clean-shaven)
-    if (hurt) px(hx + 3, hy + 8, 3, 2, '#3d1216');
+    if (down) px(hx + 3, hy + 8, 3, 2, '#3d1216');
     else px(hx + 3, hy + 8, 3, 1, '#7a4530');
     // chin shading
     px(hx + 3, hy + 10, 3, 1, SKIN2);
@@ -180,9 +188,119 @@ const SPR = (() => {
     idle: makeHan('idle'),
     taunt: makeHan('taunt'),
     hurt: makeHan('hurt'),
+    impaled: makeHan('impaled'),
   };
   han.hurtWhite = whiteVersion(han.hurt);
   han.idleWhite = whiteVersion(han.idle);
+
+  // ============================================================
+  // BRUCE — 52x92 reflection sprite (intro cinematic): shirtless,
+  // trademark claw cuts across the chest, black kung-fu pants
+  // ============================================================
+  const BRUCE_W = HAN_W, BRUCE_H = HAN_H;
+
+  function makeBruce() {
+    const c = canvas(BRUCE_W, BRUCE_H);
+    const x = c.getContext('2d');
+    const SKIN = '#e0a86e', SKIN2 = '#b57a42', SKIN3 = '#8e5a2e',
+      HAIR = '#15130f',
+      PANTS = '#23252e', PANTS2 = '#15161c', PANTS3 = '#33363f',
+      CUT = '#a32638', CUT2 = '#c93b4e', BELT = '#0c0c10';
+    const S = 2;
+    const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a * S, b * S, w * S, h * S); };
+    const pxr = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+
+    // ---- black kung-fu pants ----
+    px(7, 27, 12, 15, PANTS);
+    px(7, 27, 3, 15, PANTS2);
+    px(16, 27, 3, 15, PANTS3);
+    px(6, 40, 14, 2, PANTS2);          // hem
+    px(12, 30, 1, 11, PANTS2);         // seam
+    px(8, 42, 3, 2, SKIN2); px(14, 42, 3, 2, SKIN2); // bare feet
+    px(6, 25, 14, 2, BELT);            // sash
+
+    // ---- bare torso ----
+    px(6, 15, 14, 11, SKIN);
+    px(6, 15, 3, 11, SKIN2);
+    px(5, 13, 16, 3, SKIN);            // shoulders
+    px(5, 13, 3, 3, SKIN2);
+    // pec + ab definition
+    px(9, 18, 3, 1, SKIN3); px(14, 18, 3, 1, SKIN3);
+    px(12, 20, 1, 5, SKIN3);
+    px(9, 21, 2, 1, SKIN3); px(15, 21, 2, 1, SKIN3);
+    px(9, 23, 2, 1, SKIN3); px(15, 23, 2, 1, SKIN3);
+    // the trademark claw cuts — three thin diagonals across the chest
+    for (let k = 0; k < 3; k++) {
+      const cx0 = 17 + k * 4, cy0 = 31 + k;
+      for (let s = 0; s < 7; s++) {
+        pxr(cx0 + s, cy0 + s, 1, 2, k === 1 ? CUT2 : CUT);
+      }
+    }
+
+    // ---- arms: fighting guard ----
+    px(19, 14, 3, 4, SKIN2);           // right shoulder
+    px(20, 10, 3, 5, SKIN);            // forearm raised
+    px(19, 7, 4, 4, SKIN);             // fist up by the jaw
+    px(19, 7, 4, 1, SKIN3);
+    px(3, 16, 3, 5, SKIN2);            // left arm extended low
+    px(2, 20, 4, 4, SKIN);
+    px(2, 20, 4, 1, SKIN3);
+
+    // ---- head ----
+    const hx = 9, hy = 2;
+    px(hx, hy, 8, 11, SKIN);
+    px(hx, hy, 8, 3, HAIR);            // Bruce's mop
+    px(hx - 1, hy + 1, 1, 3, HAIR);
+    px(hx + 8, hy + 1, 1, 3, HAIR);
+    px(hx, hy + 3, 1, 1, HAIR);        // fringe
+    px(hx + 7, hy + 3, 1, 1, HAIR);
+    px(hx + 6, hy + 3, 2, 6, SKIN2);   // face shading
+    // intense brows
+    px(hx + 1, hy + 4, 3, 1, HAIR);
+    px(hx + 5, hy + 4, 3, 1, HAIR);
+    // eyes
+    px(hx + 1, hy + 5, 1, 1, '#e8e4da');
+    px(hx + 2, hy + 5, 1, 1, '#131019');
+    px(hx + 6, hy + 5, 1, 1, '#e8e4da');
+    px(hx + 7, hy + 5, 1, 1, '#131019');
+    // nose + set jaw
+    px(hx + 4, hy + 6, 1, 1, SKIN2);
+    px(hx + 3, hy + 8, 3, 1, '#6e3a26');
+    px(hx + 3, hy + 10, 3, 1, SKIN2);
+    px(hx + 2, hy + 11, 4, 2, SKIN2);  // neck
+    return c;
+  }
+  const bruce = makeBruce();
+
+  // ============================================================
+  // SPEAR — horizontal wall-mount with yellow/red pennant, 90x18.
+  // Two frames (pennant flutter).
+  // ============================================================
+  const SPEAR_W = 90, SPEAR_H = 18;
+
+  function makeSpear(flap) {
+    const c = canvas(SPEAR_W, SPEAR_H);
+    const x = c.getContext('2d');
+    const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+    // shaft
+    px(0, 6, 74, 3, '#6b4423');
+    px(0, 6, 74, 1, '#8a5c33');
+    px(0, 8, 74, 1, '#4a2e14');
+    px(0, 5, 3, 5, '#3a2412');          // butt cap
+    px(64, 5, 4, 5, '#8e1626');         // binding cord
+    // leaf blade pointing right
+    px(74, 6, 10, 3, '#c3ccd4');
+    px(76, 5, 7, 5, '#c3ccd4');
+    px(82, 6, 6, 3, '#f2f8fc');
+    px(88, 7, 2, 1, '#ffffff');         // bright tip
+    // pennant: yellow cloth, red tail, hanging + fluttering
+    px(60, 9, 8, 4, '#e8c33a');
+    px(58 + flap, 12, 7, 3, '#e8c33a');
+    px(56 + flap * 2, 14, 6, 2, '#c22b3d');
+    px(53 + flap * 2, 15 + flap, 5, 2, '#c22b3d');
+    return c;
+  }
+  const spear = [makeSpear(0), makeSpear(1)];
 
   // ============================================================
   // BRUCE fist (first-person strike) — 40x34
@@ -293,6 +411,8 @@ const SPR = (() => {
   return {
     text, textW,
     han, HAN_W, HAN_H,
+    bruce, BRUCE_W, BRUCE_H,
+    spear, SPEAR_W, SPEAR_H,
     fistR, fistL,
     bruceSil,
     portraitBruce, portraitHan,
