@@ -1044,7 +1044,7 @@ function drawMouseIcon(x, y, hot) {
 function drawTutorial(t) {
   ctx.fillStyle = 'rgba(5,2,6,0.82)';
   ctx.fillRect(0, 0, W, H);
-  const bx = 52, by = 46, bw = W - 104, bh = 178;
+  const bx = 16, by = 62, bw = W - 32, bh = 146;
   ctx.fillStyle = 'rgba(20,8,12,0.95)';
   ctx.fillRect(bx, by, bw, bh);
   ctx.strokeStyle = '#7a5326';
@@ -1054,54 +1054,51 @@ function drawTutorial(t) {
 
   SPR.text(ctx, 'HOW TO PLAY', W / 2, by + 10, 2, '#ffd985', 'center');
 
-  // numbered steps — one voice, one color
+  // numbered steps — compact font, one per line, full panel width
   const BODY = '#e8d5b0';
   const steps = [
     '1. STRIKE THE MIRRORS TO FIND AND DEFEAT HAN',
-    '2. HITTING HAN REDUCES HIS HEALTH BUT HE',
-    '   WILL HIDE BEHIND A NEW MIRROR',
-    '3. MISSING HAN REDUCES YOUR HEALTH BUT THE',
-    '   MIRROR CRACKS WITH CLUES TO HIS NEW POSITION',
-    '4. 1 CRACK = 1 AWAY   2 CRACKS = 2 AWAY',
-    '   3 CRACKS = 3 AWAY   4+ CRACKS = FAR AWAY',
+    '2. HITTING HAN REDUCES HIS HEALTH BUT HE WILL HIDE BEHIND A NEW MIRROR',
+    '3. MISSING HAN REDUCES YOUR HEALTH BUT THE MIRROR CRACKS WITH CLUES TO HIS NEW POSITION',
+    '4. 1 CRACK = 1 AWAY   2 CRACKS = 2 AWAY   3 CRACKS = 3 AWAY   4+ CRACKS = FAR AWAY',
   ];
   let y = by + 30;
   for (const s of steps) {
-    SPR.text(ctx, s, bx + 18, y, 1, BODY, 'left');
-    y += 10;
+    SPR.textSmall(ctx, s, bx + 14, y, BODY, 'left');
+    y += 9;
   }
 
   // controls, keycap-style — highlight cycles through the three groups
   const hot = Math.floor(t / 1.4) % 3;
-  const ky = by + 110;
+  const ky = by + 74;
   const LBL = (i) => hot === i ? '#ffe9b0' : '#9b8b6a';
 
   // mouse
   drawMouseIcon(118, ky, hot === 0);
-  SPR.text(ctx, 'CLICK - STRIKE', 128, ky + 32, 1, LBL(0), 'center');
-  SPR.text(ctx, 'DRAG - LOOK', 128, ky + 41, 1, LBL(0), 'center');
+  SPR.textSmall(ctx, 'CLICK - STRIKE', 128, ky + 31, LBL(0), 'center');
+  SPR.textSmall(ctx, 'DRAG - LOOK', 128, ky + 39, LBL(0), 'center');
 
   // arrow cluster
   const ac = 240, ks = 15;
-  drawKeycap(ac - ks / 2, ky - 2, ks, ks, hot === 1);
-  drawArrowGlyph(ac, ky - 2 + ks / 2, 'up', LBL(1));
-  drawKeycap(ac - ks / 2 - ks - 2, ky + ks, ks, ks, hot === 1);
-  drawArrowGlyph(ac - ks - 2, ky + ks + ks / 2, 'left', LBL(1));
-  drawKeycap(ac + ks / 2 + 2, ky + ks, ks, ks, hot === 1);
-  drawArrowGlyph(ac + ks + 2, ky + ks + ks / 2, 'right', LBL(1));
-  SPR.text(ctx, 'UP - STRIKE CENTER', ac, ky + 32, 1, LBL(1), 'center');
-  SPR.text(ctx, 'LEFT RIGHT - LOOK', ac, ky + 41, 1, LBL(1), 'center');
+  drawKeycap(ac - ks / 2, ky - 4, ks, ks, hot === 1);
+  drawArrowGlyph(ac, ky - 4 + ks / 2, 'up', LBL(1));
+  drawKeycap(ac - ks / 2 - ks - 2, ky + ks - 2, ks, ks, hot === 1);
+  drawArrowGlyph(ac - ks - 2, ky + ks - 2 + ks / 2, 'left', LBL(1));
+  drawKeycap(ac + ks / 2 + 2, ky + ks - 2, ks, ks, hot === 1);
+  drawArrowGlyph(ac + ks + 2, ky + ks - 2 + ks / 2, 'right', LBL(1));
+  SPR.textSmall(ctx, 'UP - STRIKE CENTER', ac, ky + 31, LBL(1), 'center');
+  SPR.textSmall(ctx, 'LEFT RIGHT - LOOK', ac, ky + 39, LBL(1), 'center');
 
   // number + sound keys
   const kc = 352;
   drawKeycap(kc - 22, ky + 3, 26, ks, hot === 2);
-  SPR.text(ctx, '0-9', kc - 9, ky + 8, 1, LBL(2), 'center');
+  SPR.textSmall(ctx, '0-9', kc - 9, ky + 8, LBL(2), 'center');
   drawKeycap(kc + 8, ky + 3, ks, ks, hot === 2);
-  SPR.text(ctx, 'M', kc + 15.5, ky + 8, 1, LBL(2), 'center');
-  SPR.text(ctx, '0-9 - STRIKE', kc, ky + 32, 1, LBL(2), 'center');
-  SPR.text(ctx, 'M - SOUND', kc, ky + 41, 1, LBL(2), 'center');
+  SPR.textSmall(ctx, 'M', kc + 15, ky + 8, LBL(2), 'center');
+  SPR.textSmall(ctx, '0-9 - STRIKE', kc, ky + 31, LBL(2), 'center');
+  SPR.textSmall(ctx, 'M - SOUND', kc, ky + 39, LBL(2), 'center');
 
-  SPR.text(ctx, 'CLICK ANYWHERE TO CLOSE', W / 2, by + bh - 12, 1, 'rgba(232,213,176,0.6)', 'center');
+  SPR.textSmall(ctx, 'CLICK ANYWHERE TO CLOSE', W / 2, by + bh - 11, 'rgba(232,213,176,0.6)', 'center');
 }
 
 // ============================================================

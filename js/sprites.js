@@ -55,6 +55,45 @@ const SPR = (() => {
   }
   function textW(str, scale) { return String(str).length * 5 * scale; }
 
+  // ---- compact 3x5 font (4px advance) for dense UI text ----
+  const G3 = {
+    A:[2,5,7,5,5], B:[6,5,6,5,6], C:[3,4,4,4,3], D:[6,5,5,5,6],
+    E:[7,4,6,4,7], F:[7,4,6,4,4], G:[3,4,5,5,3], H:[5,5,7,5,5],
+    I:[7,2,2,2,7], J:[1,1,1,5,2], K:[5,5,6,5,5], L:[4,4,4,4,7],
+    M:[5,7,7,5,5], N:[6,5,5,5,5], O:[2,5,5,5,2], P:[6,5,6,4,4],
+    Q:[2,5,5,2,1], R:[6,5,6,5,5], S:[3,4,2,1,6], T:[7,2,2,2,2],
+    U:[5,5,5,5,7], V:[5,5,5,5,2], W:[5,5,7,7,5], X:[5,5,2,5,5],
+    Y:[5,5,2,2,2], Z:[7,1,2,4,7],
+    '0':[2,5,5,5,2], '1':[2,6,2,2,7], '2':[6,1,2,4,7], '3':[7,1,3,1,7],
+    '4':[5,5,7,1,1], '5':[7,4,6,1,6], '6':[3,4,6,5,2], '7':[7,1,2,2,2],
+    '8':[7,5,2,5,7], '9':[2,5,3,1,6],
+    ' ':[0,0,0,0,0], '.':[0,0,0,0,2], '-':[0,0,7,0,0], '+':[0,2,7,2,0],
+    '=':[0,7,0,7,0], ':':[0,2,0,2,0], '?':[6,1,2,0,2], '!':[2,2,2,0,2],
+  };
+
+  function textSmall(ctx, str, x, y, col, align = 'left') {
+    str = String(str).toUpperCase();
+    const w = str.length * 4 - 1;
+    let ox = x;
+    if (align === 'center') ox = x - w / 2;
+    else if (align === 'right') ox = x - w;
+    ox = Math.round(ox);
+    y = Math.round(y);
+    ctx.fillStyle = col;
+    for (let ci = 0; ci < str.length; ci++) {
+      const g = G3[str[ci]] || G3['?'];
+      for (let r = 0; r < 5; r++) {
+        const bits = g[r];
+        for (let b = 0; b < 3; b++) {
+          if (bits & (4 >> b)) {
+            ctx.fillRect(ox + ci * 4 + b, y + r, 1, 1);
+          }
+        }
+      }
+    }
+    return w;
+  }
+
   // ============================================================
   // HAN — 26x46 sprite, poses: idle, taunt, hurt
   // ============================================================
@@ -290,7 +329,7 @@ const SPR = (() => {
   const portraitHan = makePortraitHan();
 
   return {
-    text, textW,
+    text, textW, textSmall,
     han, HAN_W, HAN_H,
     fistR, fistL,
     bruceSil,
