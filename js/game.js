@@ -35,8 +35,8 @@ let panes = [];      // {intact, brokenBy, clue, cracks, jag, seed}
 let hanAt = 0, heroHP = 5, hanHP = 5;
 let combo = 0, maxCombo = 0, hits = 0, score = 0;
 let elapsed = 0;
-let viewMode = 'rotate'; // rotate | arc
 let yaw = -18, targetYaw = -18;
+let tutorialOpen = false;
 let hoverPane = -1;
 let strike = null;       // {i,isHit,t,impacted,fromRight,cx,cy,startX,startY}
 let pendingStrike = null;
@@ -72,9 +72,11 @@ function resetGame() {
   strike = null; pendingStrike = null; reveal = null;
   flicker = 0; comboPop = 0; heroFlash = 0; hanFlash = 0;
   victoryAnim = null; defeatAnim = null;
+  yaw = targetYaw = 0; // camera home: mirror 1 dead-center
+  hoverPane = -1;
   FX.clearParts();
   FX.shake.trauma = 0;
-  if (window.DEBUG) console.log('[DEBUG] Han is behind pane', hanAt + 1);
+  if (window.DEBUG) console.log('[DEBUG] Han is behind pane', (hanAt + 1) % 10);
 }
 
 function startGame() {
@@ -88,46 +90,31 @@ function startGame() {
 }
 
 // ============================================================
-// LAYOUT / PROJECTION  (shared quad renderer, two cameras)
+// LAYOUT / PROJECTION  (rotating 360 camera, panes tiled edge-to-edge)
 // ============================================================
 function projR(a) {
-  return W / 2 + 240 * Math.sin(a * 0.75 * D2R) / Math.sin(58.5 * D2R);
+  // one mirror always dead-center: rel ±126 maps to the screen edges so
+  // seven gapless mirrors fit (center + three per side)
+  const k = clamp(a * 0.7, -90, 90);
+  return W / 2 + 240 * Math.sin(k * D2R) / Math.sin(88.2 * D2R);
 }
 function hRot(a) {
   const c = Math.max(0.05, Math.cos(a * D2R));
   return 190 * (0.40 + 0.60 * c);
 }
-function hArc(k) {
-  return 92 + 92 * Math.cos((k - 4.5) / 4.5 * 1.15);
-}
 
 function computeQuads() {
   paneQuads = new Array(NUM).fill(null);
   const order = [];
-  if (viewMode === 'rotate') {
-    for (let i = 0; i < NUM; i++) {
-      const rel = wrap180(i * 36 - yaw);
-      if (Math.abs(rel) > 102) continue;
-      const xL = projR(rel - 13), xR = projR(rel + 13);
-      if (xR < -12 || xL > W + 12) continue;
-      order.push({ i, rel, xL, xR, hL: hRot(rel - 13), hR: hRot(rel + 13), yMid: 134 });
-    }
-    order.sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel));
-  } else {
-    const arr = [];
-    for (let i = 0; i < NUM; i++) arr.push({ i, rel: wrap180(i * 36 + 18) });
-    arr.sort((a, b) => a.rel - b.rel);
-    arr.forEach((p, k) => {
-      const hC = hArc(k);
-      const xc = 24 + k * (W - 48) / 9;
-      const wHalf = 19 - Math.abs(k - 4.5) * 1.2;
-      p.xL = xc - wHalf; p.xR = xc + wHalf;
-      p.hL = hArc(k - 0.45); p.hR = hArc(k + 0.45);
-      p.yMid = 140 - (184 - hC) * 0.22;
-      order.push(p);
-    });
-    order.sort((a, b) => (a.hL + a.hR) - (b.hL + b.hR));
+  for (let i = 0; i < NUM; i++) {
+    const rel = wrap180(i * 36 - yaw);
+    if (Math.abs(rel) > 130) continue;
+    // panes span the full 36° slot: neighbors share an edge, no gap
+    const xL = projR(rel - 18), xR = projR(rel + 18);
+    if (xR < -12 || xL > W + 12) continue;
+    order.push({ i, rel, xL, xR, hL: hRot(rel - 18), hR: hRot(rel + 18), yMid: 134 });
   }
+  order.sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel));
   for (const q of order) paneQuads[q.i] = q;
   return order;
 }
@@ -177,7 +164,7 @@ function renderIntactBuffer(t) {
   let alpha = 0.92;
   if (flicker > 0) alpha *= 0.25 + Math.random() * 0.75;
   c.globalAlpha = alpha;
-  c.drawImage(spr, 0, 0, SPR.HAN_W, SPR.HAN_H, 6 + sway, 8 + bob, SPR.HAN_W * 2, SPR.HAN_H * 2);
+  c.drawImage(spr, 0, 0, SPR.HAN_W, SPR.HAN_H, 6 + sway, 8 + bob, SPR.HAN_W, SPR.HAN_H);
   c.globalAlpha = 1;
 
   // moving specular sheen
@@ -246,13 +233,12 @@ function renderBrokenBuffer(idx, t) {
   const pane = panes[idx];
   const c = brokenBufs[idx].c.getContext('2d');
   c.clearRect(0, 0, PW, PH);
-  // dark hole
+  // shattered: dark hole with remnant glass teeth
   const g = c.createRadialGradient(PW / 2, PH / 2, 4, PW / 2, PH / 2, PH * 0.7);
   g.addColorStop(0, '#140a10');
   g.addColorStop(1, '#060309');
   c.fillStyle = g;
   c.fillRect(3, 3, PW - 6, PH - 6);
-  // remnant glass teeth
   if (pane.jag) {
     c.fillStyle = 'rgba(170,200,215,0.45)';
     c.strokeStyle = 'rgba(230,245,250,0.5)';
@@ -263,16 +249,11 @@ function renderBrokenBuffer(idx, t) {
       c.closePath(); c.fill(); c.stroke();
     }
   }
-  // clue cracks (miss only) — count = distance to Han
-  if (pane.cracks) {
+  // miss clue — red number in the middle = Han's distance in mirrors
+  if (pane.brokenBy === 'miss' && pane.clue > 0) {
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + idx);
-    FX.drawCracks(c, pane.cracks, 0, 0, 1, 1, '#e8d5d8', 1,
-      `rgba(230,60,70,${0.25 + 0.3 * pulse})`);
-  }
-  // clue number
-  if (pane.clue > 0) {
-    const label = pane.clue >= 4 ? '4+' : String(pane.clue);
-    SPR.text(c, label, PW / 2, PH - 18, 1, 'rgba(255,90,100,0.85)', 'center');
+    SPR.text(c, String(pane.clue), PW / 2, PH / 2 - 6, 2,
+      `rgba(255,90,100,${0.65 + 0.3 * pulse})`, 'center');
   }
   drawFrame(c, true);
   // flipped
@@ -316,7 +297,7 @@ function drawPaneReflection(flipBuf, q) {
 // STRIKE
 // ============================================================
 function beginStrike(i) {
-  if (window.DEBUG) console.log('[DEBUG] beginStrike', i + 1, new Error().stack.split('\n')[2]);
+  if (window.DEBUG) console.log('[DEBUG] beginStrike', (i + 1) % 10, new Error().stack.split('\n')[2]);
   if (strike || state !== 'play') return;
   const q = paneQuads[i];
   if (!q) { // pane off-screen (rotate mode) — swing camera first
@@ -355,7 +336,8 @@ function resolveStrike() {
     combo++; maxCombo = Math.max(maxCombo, combo);
     score += 100 * combo;
     comboPop = 1;
-    hanFlash = 0.6;
+    hanFlash = 1.5;
+    SFX.kiai();
     FX.shake.add(0.45);
     FX.flash.white = 0.7;
     reveal = { pane: i, t: 0, dir: Math.random() < 0.5 ? -1 : 1 };
@@ -367,17 +349,12 @@ function resolveStrike() {
     for (let k = 0; k < NUM; k++) if (panes[k].intact) options.push(k);
     hanAt = options[(Math.random() * options.length) | 0];
     flicker = 0.5;
-    if (window.DEBUG) console.log('[DEBUG] Han moved to pane', hanAt + 1);
+    if (window.DEBUG) console.log('[DEBUG] Han moved to pane', (hanAt + 1) % 10);
   } else {
     heroHP--;
     combo = 0;
-    heroFlash = 0.6;
-    const d = circDist(i, hanAt);
-    pane.clue = d;
-    const r = FX.rng(pane.seed);
-    pane.cracks = FX.genCracks(
-      PW / 2 + (r() - 0.5) * 14, PH / 2 + (r() - 0.5) * 20,
-      PW, PH * 0.7, Math.min(d, 4), pane.seed, d >= 4 ? 3 : 1);
+    heroFlash = 1.5;
+    pane.clue = circDist(i, hanAt); // shown as the red distance number
     FX.shake.add(0.7);
     FX.flash.red = 0.9;
     setTimeout(() => SFX.heroHurt(), 80);
@@ -468,6 +445,7 @@ let dustTimer = 0;
 
 function update(dt, t) {
   redPulseT = t;
+  if (tutorialOpen) return; // game holds still while the tutorial is up
   // camera easing
   yaw += wrap180(targetYaw - yaw) * clamp(dt * 8, 0, 1);
 
@@ -489,7 +467,7 @@ function update(dt, t) {
     updateStrike(dt);
     if (pendingStrike !== null && !strike) {
       const rel = wrap180(pendingStrike * 36 - yaw);
-      if (Math.abs(rel) < 14 || viewMode === 'arc') {
+      if (Math.abs(rel) < 14) {
         const idx = pendingStrike;
         pendingStrike = null;
         beginStrike(idx);
@@ -504,7 +482,7 @@ function update(dt, t) {
 
   if (reveal) {
     reveal.t += dt;
-    if (reveal.t > 0.9) reveal = null;
+    if (reveal.t > 1.8) reveal = null;
   }
 }
 
@@ -543,15 +521,26 @@ function drawScene(t) {
     const pane = panes[q.i];
     drawPaneReflection(pane.intact ? intactFlip : brokenBufs[q.i].f, q);
   }
+  // the mirror closest to center is the one ↑ strikes — mark it
+  let focusI = -1, focusRel = 1e9;
+  for (const q of order) {
+    if (Math.abs(q.rel) < focusRel) { focusRel = Math.abs(q.rel); focusI = q.i; }
+  }
   // panes far -> near
   for (const q of order) {
     const pane = panes[q.i];
     drawPaneQuad(pane.intact ? intactBuf : brokenBufs[q.i].c, q);
-    // pane number plate
+    // pane number plate (mirrors 1-9 then 0, matching the number keys)
     const qc = quadCenter(q);
     const yTop = q.yMid - Math.max(q.hL, q.hR) / 2;
-    SPR.text(ctx, String(q.i + 1), qc.x, yTop - 8, 1,
-      pane.intact ? 'rgba(216,168,80,0.75)' : 'rgba(120,90,60,0.55)', 'center');
+    const focused = q.i === focusI && state === 'play';
+    SPR.text(ctx, String((q.i + 1) % 10), qc.x, yTop - 8, 1,
+      focused ? '#ffe9b0' : pane.intact ? 'rgba(216,168,80,0.75)' : 'rgba(120,90,60,0.55)', 'center');
+    if (focused) { // small chevron pointing down at the centered mirror
+      ctx.fillStyle = '#ffe9b0';
+      ctx.fillRect(Math.round(qc.x) - 2, yTop - 14, 4, 1);
+      ctx.fillRect(Math.round(qc.x) - 1, yTop - 13, 2, 1);
+    }
     // hover highlight
     if (state === 'play' && !strike && q.i === hoverPane && pane.intact) {
       ctx.strokeStyle = 'rgba(255,220,120,0.9)';
@@ -577,14 +566,14 @@ function drawScene(t) {
       const scale = Math.min(qc.h / SPR.HAN_H, (q.xR - q.xL) / SPR.HAN_W) * 0.92;
       const rw = SPR.HAN_W * scale, rh = SPR.HAN_H * scale;
       let alpha = 1, ox = 0;
-      if (reveal.t > 0.4) {
-        const k = (reveal.t - 0.4) / 0.5;
+      if (reveal.t > 0.8) {
+        const k = (reveal.t - 0.8) / 1.0;
         alpha = 1 - k;
         ox = reveal.dir * k * k * 120;
       }
       ctx.globalAlpha = alpha;
-      const spr = reveal.t < 0.12 ? SPR.han.hurtWhite : SPR.han.hurt;
-      const shakeX = reveal.t < 0.3 ? (Math.random() - 0.5) * 3 : 0;
+      const spr = reveal.t < 0.25 ? SPR.han.hurtWhite : SPR.han.hurt;
+      const shakeX = reveal.t < 0.6 ? (Math.random() - 0.5) * 3 : 0;
       ctx.drawImage(spr, qc.x - rw / 2 + ox + shakeX, q.yMid - rh / 2 + rh * 0.06, rw, rh);
       ctx.globalAlpha = 1;
     }
@@ -645,10 +634,12 @@ function drawHealthBar(x, name, portrait, hp, flash, alignRight) {
   for (let i = 0; i < 5; i++) {
     const cx2 = alignRight ? portX - 4 - barW + i * (chipW + gap) : px + 20 + i * (chipW + gap);
     const alive = i < hp;
-    const isFlashing = i === hp && flash > 0 && Math.floor(flash * 12) % 2 === 0;
+    // the just-lost chip blinks white/red for the whole flash window
+    const isFlashing = i === hp && flash > 0;
+    const blinkOn = Math.floor(flash * 6) % 2 === 0;
     ctx.fillStyle = alive
       ? (alignRight ? '#c22b3d' : '#3fae6a')
-      : (isFlashing ? '#ffffff' : '#2a1a20');
+      : (isFlashing ? (blinkOn ? '#ffffff' : '#c22b3d') : '#2a1a20');
     ctx.fillRect(cx2, cy, chipW, chipH);
     ctx.fillStyle = alive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.05)';
     ctx.fillRect(cx2, cy, chipW, 2);
@@ -665,8 +656,8 @@ function drawMinimap(t) {
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.arc(mx, my, R + 9, 0, Math.PI * 2); ctx.stroke();
 
-  // view cone (rotate mode)
-  if (viewMode === 'rotate') {
+  // view cone
+  {
     const a = (yaw - 90) * D2R;
     ctx.fillStyle = 'rgba(216,168,80,0.10)';
     ctx.beginPath();
@@ -688,8 +679,7 @@ function drawMinimap(t) {
     } else if (pane.brokenBy === 'miss') {
       ctx.fillStyle = '#57131d';
       ctx.fillRect(dx - 2, dy - 2, 4, 4);
-      const label = pane.clue >= 4 ? '4+' : String(pane.clue);
-      SPR.text(ctx, label, dx + (Math.cos(a) > 0.3 ? 5 : Math.cos(a) < -0.3 ? -5 : 0),
+      SPR.text(ctx, String(pane.clue), dx + (Math.cos(a) > 0.3 ? 5 : Math.cos(a) < -0.3 ? -5 : 0),
         dy + (Math.sin(a) > 0.3 ? 5 : Math.sin(a) < -0.3 ? -8 : -2), 1, '#ff5a64',
         Math.cos(a) > 0.3 ? 'left' : Math.cos(a) < -0.3 ? 'right' : 'center');
     } else {
@@ -720,8 +710,7 @@ function drawHUD(t) {
   }
   // hints
   if (state === 'play' && elapsed < 12) {
-    const hint = viewMode === 'rotate' ? 'CLICK A MIRROR TO STRIKE - DRAG TO LOOK' : 'CLICK A MIRROR TO STRIKE';
-    SPR.text(ctx, hint, W / 2, H - 8, 1, 'rgba(155,139,106,0.55)', 'center');
+    SPR.text(ctx, 'CLICK A MIRROR TO STRIKE - DRAG TO LOOK', W / 2, H - 8, 1, 'rgba(155,139,106,0.55)', 'center');
   }
   drawUIButtons();
 }
@@ -750,16 +739,12 @@ function drawTitle(t) {
   const ty = 34;
   SPR.text(ctx, 'HALL OF MIRRORS', W / 2 + 2, ty + 2, 3, '#57131d', 'center');
   SPR.text(ctx, 'HALL OF MIRRORS', W / 2, ty, 3, '#ffd985', 'center');
-  SPR.text(ctx, 'BRUCE VS HAN', W / 2, ty + 22, 1, '#c9a15c', 'center');
-  // legend
-  SPR.text(ctx, 'HAN HIDES BEHIND ONE MIRROR', W / 2, 196, 1, '#9b8b6a', 'center');
-  SPR.text(ctx, 'MISS: CRACKS COUNT = HIS DISTANCE', W / 2, 206, 1, '#9b8b6a', 'center');
-  SPR.text(ctx, '1 CRACK = NEXT DOOR ... 4+ = FAR', W / 2, 216, 1, '#6e6350', 'center');
+  // subtitle below the red sun
+  SPR.text(ctx, 'BRUCE VS HAN', W / 2, 218, 1, '#c9a15c', 'center');
   // prompt
   if (Math.floor(t * 1.6) % 2 === 0) {
     SPR.text(ctx, 'CLICK TO ENTER', W / 2, 240, 2, '#ffe9b0', 'center');
   }
-  SPR.text(ctx, 'DRAG-LOOK   V-VIEW   M-SOUND   1-0 STRIKE', W / 2, 260, 1, 'rgba(155,139,106,0.45)', 'center');
 }
 
 // ---------- end screens ----------
@@ -782,7 +767,7 @@ function drawVictory(t) {
   const scale = 4;
   SPR.text(ctx, 'VICTORY', W / 2 + 3, 62 + 3, scale, '#57131d', 'center');
   SPR.text(ctx, 'VICTORY', W / 2, 62, scale, pulse > 1 ? '#ffe9b0' : '#ffd985', 'center');
-  SPR.text(ctx, 'THE ENEMY HAS ONLY IMAGES AND ILLUSIONS', W / 2, 100, 1, '#9b8b6a', 'center');
+  SPR.text(ctx, 'DESTROY THE IMAGE AND YOU WILL BREAK THE ENEMY', W / 2, 100, 1, '#ffd985', 'center');
   const t2 = v.t - 1.9;
   tallyLine('STRIKES', hits, 126, t2, 0, false);
   tallyLine('BEST COMBO', maxCombo, 140, t2, 0.4, false);
@@ -817,10 +802,10 @@ function drawDefeat(t) {
     const k2 = clamp((d.t - 0.8) / 0.6, 0, 1);
     ctx.fillStyle = `rgba(8,2,4,${0.78 * k2})`;
     ctx.fillRect(0, 0, W, H);
-    SPR.text(ctx, 'GAME OVER', W / 2 + 3, 78 + 3, 4, '#2a0a10', 'center');
-    SPR.text(ctx, 'GAME OVER', W / 2, 78, 4, '#c22b3d', 'center');
-    SPR.text(ctx, 'YOU HAVE OFFENDED MY FAMILY', W / 2, 116, 1, '#9b8b6a', 'center');
-    SPR.text(ctx, 'AND YOU HAVE OFFENDED THE SHAOLIN TEMPLE', W / 2, 126, 1, '#9b8b6a', 'center');
+    SPR.text(ctx, 'DEFEAT', W / 2 + 3, 78 + 3, 4, '#2a0a10', 'center');
+    SPR.text(ctx, 'DEFEAT', W / 2, 78, 4, '#c22b3d', 'center');
+    SPR.text(ctx, 'YOU FAILED TO STOP HAN. THE SHAOLIN TEMPLE IS DISGRACED.', W / 2, 116, 1, '#ffd985', 'center');
+    SPR.text(ctx, 'WILL YOU CONTINUE THE FIGHT?', W / 2, 126, 1, '#ffd985', 'center');
     SPR.text(ctx, `STRIKES ${hits}   TIME ${fmtTime(elapsed)}`, W / 2, 152, 1, '#6e6350', 'center');
     SPR.text(ctx, `SCORE ${pad(score, 6)}`, W / 2, 166, 1, '#d8a850', 'center');
   }
@@ -837,6 +822,7 @@ function render(t) {
     drawTitle(t);
     FX.drawParts(ctx);
     drawUIButtons();
+    if (tutorialOpen) drawTutorial(t);
     applyFlashes();
     return;
   }
@@ -871,6 +857,7 @@ function render(t) {
 
   if (state === 'victory') drawVictory(t);
   if (state === 'defeat') drawDefeat(t);
+  if (tutorialOpen) drawTutorial(t);
 }
 
 function applyFlashes() {
@@ -905,7 +892,8 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
   const p = canvasPos(e);
   pointer.x = p.x; pointer.y = p.y;
-  if (pointer.down && state === 'play' && viewMode === 'rotate') {
+  if (tutorialOpen) { hoverPane = -1; return; }
+  if (pointer.down && state === 'play') {
     const dx = p.x - pointer.downX;
     if (Math.abs(dx) > 6) pointer.dragging = true;
     if (pointer.dragging) targetYaw = pointer.downYaw - dx * 0.45;
@@ -917,13 +905,17 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerup', e => {
   const wasDrag = pointer.dragging;
   pointer.down = false; pointer.dragging = false;
-  if (wasDrag) return;
+  if (wasDrag) { // settle on the nearest mirror so one is always centered
+    targetYaw = Math.round(targetYaw / 36) * 36;
+    return;
+  }
   const p = canvasPos(e);
   handleClick(p.x, p.y);
 });
 
 function handleClick(x, y) {
   SFX.init();
+  if (tutorialOpen) { tutorialOpen = false; SFX.uiTick(); return; }
   if (clickUIButton(x, y)) return;
   if (state === 'title') { startGame(); return; }
   if (state === 'victory' && victoryAnim.t > 4.5) { SFX.uiTick(); startGame(); return; }
@@ -938,8 +930,11 @@ function handleClick(x, y) {
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
   const k = e.key;
+  if (tutorialOpen) {
+    if (k === 'Escape' || k === 'Enter' || k === ' ') { tutorialOpen = false; SFX.uiTick(); }
+    return;
+  }
   if (k === 'm' || k === 'M') { toggleMute(); return; }
-  if (k === 'v' || k === 'V') { toggleView(); return; }
   if (k === 'Enter' || k === ' ') {
     SFX.init();
     if (state === 'title') startGame();
@@ -950,6 +945,20 @@ window.addEventListener('keydown', e => {
   if (state !== 'play') return;
   if (k === 'ArrowLeft') { targetYaw -= 36; SFX.uiTick(); }
   if (k === 'ArrowRight') { targetYaw += 36; SFX.uiTick(); }
+  if (k === 'ArrowUp') {
+    // strike the mirror closest to the center of view
+    let best = -1, bestRel = 1e9;
+    for (let i = 0; i < NUM; i++) {
+      if (!panes[i].intact) continue;
+      const rel = Math.abs(wrap180(i * 36 - yaw));
+      if (rel < bestRel) { bestRel = rel; best = i; }
+    }
+    if (best >= 0 && !strike) {
+      SFX.init();
+      beginStrike(best);
+    }
+    return;
+  }
   if (/^[0-9]$/.test(k)) {
     const i = (k === '0') ? 9 : parseInt(k, 10) - 1;
     if (panes[i] && panes[i].intact && !strike) {
@@ -964,14 +973,9 @@ function toggleMute() {
   SFX.init();
   SFX.setMuted(!SFX.muted);
 }
-function toggleView() {
-  viewMode = (viewMode === 'rotate') ? 'arc' : 'rotate';
-  SFX.uiTick();
-}
-
 function uiButtons() {
   return [
-    { id: 'view', label: viewMode === 'rotate' ? 'VIEW:360' : 'VIEW:ARC', x: W - 106, y: 28, w: 50, h: 11 },
+    { id: 'tutorial', label: 'TUTORIAL', x: W - 106, y: 28, w: 50, h: 11 },
     { id: 'mute', label: SFX.muted ? 'SND:OFF' : 'SND:ON', x: W - 52, y: 28, w: 45, h: 11 },
   ];
 }
@@ -990,12 +994,109 @@ function drawUIButtons() {
 function clickUIButton(x, y) {
   for (const b of uiButtons()) {
     if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
-      if (b.id === 'view') toggleView();
+      if (b.id === 'tutorial') { tutorialOpen = true; SFX.uiTick(); }
       else toggleMute();
       return true;
     }
   }
   return false;
+}
+
+// ---------- tutorial modal ----------
+function drawKeycap(x, y, w, h, hot) {
+  ctx.fillStyle = hot ? '#3a2415' : '#1c0f13';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = hot ? '#ffe9b0' : '#7a5326';
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.fillStyle = hot ? 'rgba(255,233,176,0.35)' : 'rgba(216,168,80,0.2)';
+  ctx.fillRect(x + 1, y + 1, w - 2, 1);
+}
+
+function drawArrowGlyph(cx, cy, dir, col) {
+  ctx.fillStyle = col;
+  for (let i = 0; i < 4; i++) {
+    const s = i * 2 + 1;
+    if (dir === 'up') ctx.fillRect(cx - i, cy - 2 + i, s, 1);
+    else if (dir === 'left') ctx.fillRect(cx - 2 + i, cy - i, 1, s);
+    else ctx.fillRect(cx + 2 - i, cy - i, 1, s);
+  }
+}
+
+function drawMouseIcon(x, y, hot) {
+  const B = hot ? '#ffe9b0' : '#9b8b6a';
+  ctx.fillStyle = '#1c0f13';
+  ctx.fillRect(x + 2, y + 1, 16, 24);
+  ctx.fillRect(x + 1, y + 3, 18, 20);
+  ctx.fillStyle = B;
+  ctx.fillRect(x + 4, y, 12, 1);
+  ctx.fillRect(x + 4, y + 25, 12, 1);
+  ctx.fillRect(x, y + 4, 1, 18);
+  ctx.fillRect(x + 19, y + 4, 1, 18);
+  ctx.fillRect(x + 2, y + 1, 2, 1); ctx.fillRect(x + 16, y + 1, 2, 1);
+  ctx.fillRect(x + 1, y + 2, 1, 2); ctx.fillRect(x + 18, y + 2, 1, 2);
+  ctx.fillRect(x + 2, y + 24, 2, 1); ctx.fillRect(x + 16, y + 24, 2, 1);
+  ctx.fillRect(x + 1, y + 22, 1, 2); ctx.fillRect(x + 18, y + 22, 1, 2);
+  ctx.fillRect(x + 9, y + 3, 2, 6); // button split / scroll wheel
+}
+
+function drawTutorial(t) {
+  ctx.fillStyle = 'rgba(5,2,6,0.82)';
+  ctx.fillRect(0, 0, W, H);
+  const bx = 10, by = 56, bw = W - 20, bh = 158;
+  ctx.fillStyle = 'rgba(20,8,12,0.95)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = '#7a5326';
+  ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+  ctx.strokeStyle = '#d8a850';
+  ctx.strokeRect(bx + 2.5, by + 2.5, bw - 5, bh - 5);
+
+  SPR.text(ctx, 'HOW TO PLAY', W / 2, by + 10, 2, '#ffd985', 'center');
+
+  // numbered steps — one per line, full panel width
+  const BODY = '#e8d5b0';
+  const steps = [
+    '1. STRIKE THE MIRRORS TO FIND AND DEFEAT HAN',
+    '2. HITTING HAN REDUCES HIS HEALTH BUT HE WILL HIDE BEHIND A NEW MIRROR',
+    '3. MISSING HAN REDUCES YOUR HEALTH BUT THE MIRROR BREAKS WITH CLUES TO HIS POSITION',
+    '4. THE RED NUMBER SHOWS HOW MANY MIRRORS AWAY HAN IS',
+  ];
+  let y = by + 28;
+  for (const s of steps) {
+    SPR.text(ctx, s, bx + 12, y, 1, BODY, 'left');
+    y += 11;
+  }
+
+  // controls, keycap-style — highlight cycles through the three groups
+  const hot = Math.floor(t / 1.4) % 3;
+  const ky = by + 82;
+  const LBL = (i) => hot === i ? '#ffe9b0' : '#9b8b6a';
+
+  // mouse
+  drawMouseIcon(118, ky, hot === 0);
+  SPR.text(ctx, 'CLICK - STRIKE', 128, ky + 31, 1, LBL(0), 'center');
+  SPR.text(ctx, 'DRAG - LOOK', 128, ky + 41, 1, LBL(0), 'center');
+
+  // arrow cluster
+  const ac = 240, ks = 15;
+  drawKeycap(ac - ks / 2, ky - 4, ks, ks, hot === 1);
+  drawArrowGlyph(ac, ky - 4 + ks / 2, 'up', LBL(1));
+  drawKeycap(ac - ks / 2 - ks - 2, ky + ks - 2, ks, ks, hot === 1);
+  drawArrowGlyph(ac - ks - 2, ky + ks - 2 + ks / 2, 'left', LBL(1));
+  drawKeycap(ac + ks / 2 + 2, ky + ks - 2, ks, ks, hot === 1);
+  drawArrowGlyph(ac + ks + 2, ky + ks - 2 + ks / 2, 'right', LBL(1));
+  SPR.text(ctx, 'UP - STRIKE CENTER', ac, ky + 31, 1, LBL(1), 'center');
+  SPR.text(ctx, 'LEFT RIGHT - LOOK', ac, ky + 41, 1, LBL(1), 'center');
+
+  // number + sound keys
+  const kc = 352;
+  drawKeycap(kc - 22, ky + 3, 26, ks, hot === 2);
+  SPR.text(ctx, '0-9', kc - 9, ky + 8, 1, LBL(2), 'center');
+  drawKeycap(kc + 8, ky + 3, ks, ks, hot === 2);
+  SPR.text(ctx, 'M', kc + 15, ky + 8, 1, LBL(2), 'center');
+  SPR.text(ctx, '0-9 - STRIKE', kc, ky + 31, 1, LBL(2), 'center');
+  SPR.text(ctx, 'M - SOUND', kc, ky + 41, 1, LBL(2), 'center');
+
+  SPR.text(ctx, 'CLICK ANYWHERE TO CLOSE', W / 2, by + bh - 12, 1, 'rgba(232,213,176,0.6)', 'center');
 }
 
 // ============================================================

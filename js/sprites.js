@@ -36,6 +36,9 @@ const SPR = (() => {
     let ox = x;
     if (align === 'center') ox = x - w / 2;
     else if (align === 'right') ox = x - w;
+    // integer origin keeps the pixel font crisp (half-pixel rects antialias)
+    ox = Math.round(ox);
+    y = Math.round(y);
     ctx.fillStyle = col;
     for (let ci = 0; ci < str.length; ci++) {
       const g = G[str[ci]] || G['?'];
@@ -53,62 +56,70 @@ const SPR = (() => {
   function textW(str, scale) { return String(str).length * 5 * scale; }
 
   // ============================================================
-  // HAN — 26x46 sprite, poses: idle, taunt, hurt
+  // HAN — 52x92 sprite (2x internal grid so the blades can be
+  // half-pixel thin), poses: idle, taunt, hurt
   // ============================================================
-  const HAN_W = 26, HAN_H = 46;
+  const HAN_W = 52, HAN_H = 92;
 
   function drawHanInto(c, pose) {
-    const OUT = '#16121a', SKIN = '#d19a62', SKIN2 = '#a56b3a',
+    const SKIN = '#d19a62', SKIN2 = '#a56b3a',
       HAIR = '#585d66', HAIR2 = '#3e434b',
-      ROBE = '#4d5f6d', ROBE2 = '#36454f', ROBE3 = '#66798a',
-      RED = '#a32638', CLAW = '#c3ccd4', CLAWH = '#f2f8fc', DK = '#1c1410';
-    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+      TOP = '#6e4526', TOP2 = '#513218', TOP3 = '#8a5c33',
+      PANTS = '#a8996a', PANTS2 = '#847752', PANTS3 = '#c2b485',
+      BELT = '#3a2412', CLAW = '#c3ccd4', CLAWH = '#f2f8fc', DK = '#1c1410',
+      CUFF = '#e9edf2', GLOVE = '#141419';
+    const S = 2; // internal grid scale
+    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x * S, y * S, w * S, h * S); };
+    const pxr = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); }; // raw (half-grid) px
     const hurt = pose === 'hurt';
     const taunt = pose === 'taunt';
     const L = hurt ? 2 : 0;          // torso lean
     const hy = 2 + (hurt ? 2 : 0);   // head y
 
-    // ---- robe skirt / legs ----
-    px(7, 27, 12, 15, ROBE);
-    px(7, 27, 3, 15, ROBE2);
-    px(16, 27, 3, 15, ROBE3);
-    px(6, 40, 14, 2, ROBE2);          // hem
+    // ---- khaki pants / legs ----
+    px(7, 27, 12, 15, PANTS);
+    px(7, 27, 3, 15, PANTS2);
+    px(16, 27, 3, 15, PANTS3);
+    px(6, 40, 14, 2, PANTS2);         // hem
     px(8, 42, 3, 2, DK); px(14, 42, 3, 2, DK); // shoes
-    // center slit
-    px(12, 30, 1, 11, ROBE2);
+    // center seam
+    px(12, 30, 1, 11, PANTS2);
 
-    // ---- torso ----
-    px(6 + L, 16, 14, 12, ROBE);
-    px(6 + L, 16, 4, 12, ROBE2);
-    px(16 + L, 16, 3, 12, ROBE3);
-    px(6 + L, 25, 14, 2, RED);        // sash
-    px(12 + L, 16, 1, 9, ROBE3);      // frog-button line
-    px(5 + L, 14, 16, 3, ROBE);       // shoulders
-    px(5 + L, 14, 4, 3, ROBE2);
+    // ---- brown torso ----
+    px(6 + L, 16, 14, 12, TOP);
+    px(6 + L, 16, 4, 12, TOP2);
+    px(16 + L, 16, 3, 12, TOP3);
+    px(6 + L, 25, 14, 2, BELT);       // dark belt
+    px(12 + L, 16, 1, 9, TOP3);       // frog-button line
+    px(5 + L, 14, 16, 3, TOP);        // shoulders
+    px(5 + L, 14, 4, 3, TOP2);
 
-    // ---- left arm (viewer left) hangs down ----
-    px(4 + L, 17, 3, 8, ROBE2);
-    px(4 + L, 25, 3, 3, SKIN);
-    px(4 + L, 27, 3, 1, SKIN2);
+    // ---- right arm (viewer right) hangs down, black glove ----
+    px(19 + L, 17, 3, 8, TOP2);
+    px(19 + L, 25, 3, 3, GLOVE);
+    px(19 + L, 27, 3, 1, '#0b0b10');
 
-    // ---- right arm: CLAW ----
+    // ---- left arm (his blade hand): four needle blades on a white cuff ----
     if (hurt) {
-      // both arms drop, claw low
-      px(19 + L, 17, 3, 8, ROBE2);
-      px(19 + L, 25, 3, 3, SKIN);
-      px(19 + L, 28, 1, 4, CLAW); px(21 + L, 28, 1, 4, CLAW);
+      // both arms drop, blades hang low
+      px(4 + L, 17, 3, 8, TOP2);
+      pxr((4 + L) * S - 1, 25 * S, 8, 4, CUFF);       // wrist-width cuff
+      for (let k = 0; k < 4; k++) {
+        pxr((4 + L) * S + k * 2, 27 * S, 1, 8 + (k % 2 ? 2 : 0), k % 2 ? CLAWH : CLAW);
+      }
     } else {
       const raise = taunt ? 4 : 0;
-      px(18 + L, 15 - raise, 3, 4, ROBE3);            // upper arm
-      px(19 + L, 11 - raise, 3, 5, ROBE2);            // forearm
-      px(20 + L, 8 - raise, 3, 3, SKIN);              // hand
-      // claw prongs
-      px(19 + L, 3 - raise, 1, 5, CLAW);
-      px(21 + L, 2 - raise, 1, 6, CLAWH);
-      px(23 + L, 3 - raise, 1, 5, CLAW);
-      // prong tips
-      px(19 + L, 2 - raise, 1, 1, CLAWH);
-      px(23 + L, 2 - raise, 1, 1, CLAWH);
+      px(5 + L, 15 - raise, 3, 4, TOP3);              // upper arm
+      px(4 + L, 11 - raise, 3, 5, TOP2);              // forearm
+      // white shirt cuff — no wider than the wrist
+      const cx0 = (4 + L) * S - 1, byTop = (9 - raise) * S;
+      pxr(cx0, byTop, 8, 4, CUFF);
+      // four needle blades packed at 1px gaps, cluster = wrist width
+      for (let k = 0; k < 4; k++) {
+        const len = 11 + (k % 2 ? 2 : 0);
+        pxr(cx0 + 1 + k * 2, byTop - len, 1, len, k % 2 ? CLAWH : CLAW);
+        pxr(cx0 + 1 + k * 2, byTop - len, 1, 2, CLAWH); // bright tip
+      }
     }
 
     // ---- head ----
@@ -138,18 +149,15 @@ const SPR = (() => {
     px(hx + 7, hy + 2, 1, 4, '#8a4a52');
     // nose
     px(hx + 4, hy + 6, 1, 1, SKIN2);
-    // moustache
-    px(hx + 2, hy + 7, 5, 1, HAIR2);
-    // mouth
+    // mouth (clean-shaven)
     if (hurt) px(hx + 3, hy + 8, 3, 2, '#3d1216');
     else px(hx + 3, hy + 8, 3, 1, '#7a4530');
-    // goatee
-    px(hx + 3, hy + 9, 3, 1, HAIR2);
-    px(hx + 4, hy + 10, 2, 2, HAIR2);
+    // chin shading
+    px(hx + 3, hy + 10, 3, 1, SKIN2);
     // neck
     px(hx + 2, hy + 11, 4, 2, SKIN2);
     // collar
-    px(hx + 1, hy + 12, 6, 2, RED);
+    px(hx + 1, hy + 12, 6, 2, TOP2);
   }
 
   function makeHan(pose) {

@@ -7,11 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tutorial overlay** — a Tutorial button on the HUD opens a how-to-play modal that pauses the
+  game: four numbered steps (including how to read the red distance numbers) plus a pixel-art
+  control diagram — mouse, arrow keys, and number keys drawn as keycaps with a cycling highlight.
+- **Strike-in-focus key** — `↑` strikes whichever mirror is centered in view.
+- **Martial-arts strike sound** — a whip-crack "kiai" accent plays on every successful hit.
+- Dev server accepts an optional port argument (`python3 serve.py 8643`).
 - **Opt-in, privacy-first telemetry** — a vendor-agnostic `track(event, props)` layer
   ([js/telemetry.js](js/telemetry.js)) that records core gameplay events (started / won / lost) and
   reports JS errors. Cookie-free, respects Do Not Track, and **inert until configured** — the game
   stays fully self-contained until you add a GoatCounter code + Sentry DSN. See
   [docs/TELEMETRY.md](docs/TELEMETRY.md).
+
+### Changed
+- **Seven mirrors on screen, one always centered** — panes tile edge-to-edge with no gaps, the
+  camera snaps to the nearest mirror after a drag, and a chevron marks the centered mirror that
+  `↑` strikes.
+- **Mirrors renumbered 0–9** (was 1–10) so labels match the number keys exactly.
+- **Han redesigned** — brown top and khaki pants with no red accents, clean-shaven, black glove on
+  the right hand, and the hand sabre is now four needle-thin blades on a white shirt cuff, worn on
+  his left hand (the sprite doubled its internal resolution to draw them that thin).
+- **Miss clues are an exact red distance number** — a missed pane shatters and shows Han's distance
+  as a pulsing red number in the middle (exact 1–5; the old `4+` cap is gone). A crack-count-only
+  clue system was prototyped and reverted pending a better crack visual.
+- **Slower, clearer hit feedback** — Han's reveal lingers about twice as long, and the lost health
+  chip blinks white/red for an extended beat on both health bars.
+- **End-screen copy** — victory now reads "Destroy the image and you will break the enemy"; defeat
+  reads "Defeat — You failed to stop Han. The Shaolin Temple is disgraced. Will you continue the
+  fight?". The camera returns to mirror 1 when a new game starts.
+- **Title screen decluttered** — only the title, "Bruce vs Han" (now under the red sun), and the
+  blinking start prompt remain; the mechanics legend and control hints moved into the tutorial.
+
+### Fixed
+- Blurry centered text — the pixel font now always renders on whole pixels.
+
+### Removed
+- The arc camera view (and its `V` toggle); the rotating 360° view is the only camera.
 
 ## [1.0.0] — 2026-07-19
 
