@@ -740,16 +740,12 @@ function drawTitle(t) {
   const ty = 34;
   SPR.text(ctx, 'HALL OF MIRRORS', W / 2 + 2, ty + 2, 3, '#57131d', 'center');
   SPR.text(ctx, 'HALL OF MIRRORS', W / 2, ty, 3, '#ffd985', 'center');
-  SPR.text(ctx, 'BRUCE VS HAN', W / 2, ty + 22, 1, '#c9a15c', 'center');
-  // legend
-  SPR.text(ctx, 'HAN HIDES BEHIND ONE MIRROR', W / 2, 196, 1, '#9b8b6a', 'center');
-  SPR.text(ctx, 'MISS: CRACKS COUNT = HIS DISTANCE', W / 2, 206, 1, '#9b8b6a', 'center');
-  SPR.text(ctx, '1 CRACK = NEXT DOOR ... 5 = OPPOSITE', W / 2, 216, 1, '#6e6350', 'center');
+  // subtitle below the red sun
+  SPR.text(ctx, 'BRUCE VS HAN', W / 2, 218, 1, '#c9a15c', 'center');
   // prompt
   if (Math.floor(t * 1.6) % 2 === 0) {
     SPR.text(ctx, 'CLICK TO ENTER', W / 2, 240, 2, '#ffe9b0', 'center');
   }
-  SPR.text(ctx, 'DRAG-LOOK   M-SOUND   0-9 STRIKE   UP-STRIKE CENTER', W / 2, 260, 1, 'rgba(155,139,106,0.45)', 'center');
 }
 
 // ---------- end screens ----------

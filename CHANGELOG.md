@@ -53,6 +53,9 @@ vanilla HTML/CSS/JS, no build step, no external assets (all art and audio genera
   reads "Defeat — You failed to stop Han. The Shaolin Temple is disgraced. Will you continue the
   fight?". The camera returns to mirror 1 when a new game starts.
 
+- **Title screen decluttered** — only the title, "Bruce vs Han" (now under the red sun), and the
+  blinking start prompt remain; the mechanics legend and control hints moved into the tutorial.
+
 ### Fixed
 - Blurry centered text — the pixel font now always renders on whole pixels.
 
