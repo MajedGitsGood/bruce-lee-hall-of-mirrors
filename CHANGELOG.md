@@ -8,15 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Opening cinematic** — after CLICK TO ENTER, the centered mirror revolves like the film's
-  spinning panel and Han steps through it, dissolves into every pane at once, the camera pans past
-  a wall-mounted spear with a yellow/red pennant, and Bruce's reflection — shirtless, with his
-  trademark claw cuts — appears as your fists rise into guard. Skippable with any click or key;
-  replays go straight to the fight.
-- **Victory impale cinematic** — on the final hit the mirror wall revolves through two full
-  rotations while the remaining panes shatter in cascade, then the spin decelerates onto the
-  mounted spear: Han hangs impaled on it, pinned to the wall, before the score tally fades in.
-- **Spear on the mirror wall** — a spear with a yellow/red cloth pennant is mounted at the seam
-  between mirrors 0 and 9, visible all game long (the intro plants it; the victory pays it off).
+  spinning panel and Han steps through it, then slowly dissolves into every pane at once with a
+  cold, echoing laugh. Bruce's reflection — shirtless, with his trademark claw cuts — holds on the
+  glass as a speech bubble delivers his taunt ("You have offended my family and you have offended
+  the Shaolin Temple") and your fists rise into guard. A low musical bed underscores the whole
+  sequence and swells as Bruce appears. Skippable with any click or key; replays go straight to
+  the fight.
+- **Victory impale cinematic** — the killing blow lands on the mirror you just struck: the other
+  panes shatter in a quick cascade while a short spear runs diagonally through Han — shaft jutting
+  from one side, bloodied blade from the other — with a dying cry and a triumphant horn the instant
+  he falls. Your fists lower out of view and the image holds for a few seconds, then that pane
+  revolves slowly — revealing Bruce standing behind the glass — and turns back to the impaled Han
+  before the score tally fades in.
+
+- **Scroll to look around** — the mouse wheel or a trackpad swipe now rotates the mirror ring,
+  settling on the nearest mirror when you stop (alongside the existing drag and arrow-key controls).
+
+### Changed
+- **Distance clues cap at "4+"** — a missed mirror shows Han's distance as before, but 4 and 5 both
+  read `4+` (on the pane and the minimap) instead of an exact digit, so a far Han stays ambiguous.
 
 ### Fixed
 - The dev server now serves the game's own directory regardless of the launch working directory.

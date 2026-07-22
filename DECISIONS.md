@@ -9,6 +9,42 @@ completion via the `logbook` skill — only when a real decision was made, not f
 
 ---
 
+## 2026-07-21 — Cinematics polish: victory on the last-struck pane, a through-the-body spear, horn cue, and a "4+" clue cap
+**Decision:** Playtest feedback reshaped both v2 cinematics before merge. The **spear no longer
+exists during the opening or normal play** — it appears only at the victory impale. It is a **short
+sprite drawn diagonally BEHIND Han** (`SPR.spearThru`) so his torso hides the middle: the shaft (with
+pennant) juts from his upper side and the bloodied blade from the other, selling the
+through-the-body illusion while staying inside one pane — never a horizontal shaft spanning mirrors.
+The **victory resolves on the mirror the player just struck** (camera stays; other panes
+cascade-shatter, no wall spin). Beat order: **impale (≈3s linger, dying cry + a sustained triumphant
+horn the instant Han falls) → reveal (that pane slowly revolves, showing Bruce behind the glass,
+ending back on impaled Han) → tally**. The **intro is retimed**: a longer dissolve with a proper
+`evilLaugh`, Bruce's reflection holding ~4s behind a **speech-bubble taunt**, and a **musical bed**
+(`introMusicStart/Stop` + `introSwell`) under the whole opening. Separately, **distance clues cap at
+`4+`** (4 and 5 both read `4+`, on the pane and minimap) — a small reversal of the "exact 1–5"
+decision below.
+**Why:** The mounted horizontal spear read as clutter during play and its cross-pane shaft fought
+the one-mirror-in-focus framing. Drawing a short spear *behind* Han is what finally read as "through
+him" — earlier frontal/foreshortened attempts (tip toward the viewer) looked stuck-on rather than
+piercing. Resolving on the last-struck pane keeps the camera honest and sets up the poetic reveal
+(the reflection dies; the real Bruce stands behind it). The horn gives the kill an immediate musical
+payoff the beepy arpeggio lacked. Capping the clue at `4+` restores a bit of challenge — a far Han is
+deliberately ambiguous again.
+**Rejected:**
+- *Keep the wall-mounted spear visible all game (Chekhov's gun)* — distracting; cross-pane shaft
+  broke the single-pane focus.
+- *Frontal / foreshortened spear pointing at the viewer* — tried first; it didn't read as passing
+  through Han, just pinned in front of him. Drawing it behind the body sold the impale.
+- *Spin the ring back to a fixed spear seam at victory* — disorienting and disconnected from where
+  the fight ended.
+- *Exact 1–5 clue digit* — kept the game slightly too readable at range; `4+` reintroduces the
+  intended ambiguity without bringing back the discredited crack-count system.
+**Affects:** `js/sprites.js` (`spearThru` replaces the horizontal `spear`), `js/audio.js`
+(`evilLaugh`, `hanDeath`, `introMusicStart/Stop`, `introSwell`, horn `victory()`), `js/game.js`
+(`updateIntro`/`drawIntroOverlay` + speech bubble, `beginVictory(pane)`/`updateVictory` phases
+`impale → reveal → tally`, `drawImpaledFigure` diagonal spear, `clueLabel` cap; removed `SPEAR_ANG`,
+`drawSpear`). Refines the entry below and partly reverses the "exact 1–5" reversal.
+
 ## 2026-07-20 — Cinematics are stylized in-engine sequences, not film recreations
 **Decision:** The v2 opening and victory cinematics play inside the game's own first-person mirror
 renderer: the "revolving door" is the centered pane squash-flipping on a cosine, Han "enters the

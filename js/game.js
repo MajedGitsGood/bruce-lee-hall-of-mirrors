@@ -26,6 +26,8 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 function wrap180(a) { a = ((a + 180) % 360 + 360) % 360; return a - 180; }
 function circDist(a, b) { const d = Math.abs(a - b); return Math.min(d, NUM - d); }
+// distance clue is capped: 4 or 5 both read "4+" (far is deliberately ambiguous)
+function clueLabel(c) { return c >= 4 ? '4+' : String(c); }
 function fmtTime(s) { s = Math.floor(s); return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`; }
 function pad(n, w) { return String(n | 0).padStart(w, '0'); }
 
@@ -50,7 +52,6 @@ let titleT = 0;
 // intro cinematic
 let intro = null;        // {t, ...one-shot flags}
 let introHanAlpha = 1;   // multiplier on Han's reflection in intact panes (0 during intro beat A)
-const SPEAR_ANG = 342;   // wall angle of the mounted spear: the seam between mirrors 0 and 9
 
 // ---------- pane content buffers ----------
 const PW = 64, PH = 104;
@@ -94,6 +95,7 @@ function startGame(withIntro = false) {
     state = 'intro';
     intro = { t: 0 };
     introHanAlpha = 0;
+    SFX.introMusicStart();
     if (window.track) track('intro-started');
   } else {
     state = 'play';
@@ -108,26 +110,28 @@ function endIntro() {
   yaw = targetYaw = 0;
   state = 'play';
   FX.flash.white = 0.75;
+  SFX.introMusicStop();
   SFX.gongStart();
   if (window.track) track('game-started');
 }
 
 // ---------- intro cinematic (skippable) ----------
-// Beat A 0–2.2s   the centered pane revolves like a door; Han steps through
-// Beat B 2.2–3.8s Han dissolves — his reflection floods every mirror
-// Beat C 3.8–5.2s camera pans to reveal the wall-mounted spear
-// Beat D 5.2–7.2s Bruce's reflection appears; your fists rise into guard
+// A low musical bed plays under the whole sequence, swelling on Bruce's beat.
+// Beat A 0–2.5s   the centered pane revolves like a door; Han steps through
+// Beat B 2.5–5.2s Han slowly dissolves — his reflection floods every mirror (evil laugh)
+// Beat D 5.4–9.6s Bruce's reflection holds; a speech bubble taunts; your fists rise
 function updateIntro(dt) {
   intro.t += dt;
   const it = intro.t;
   const fire = (key, at, fn) => { if (!intro[key] && it >= at) { intro[key] = true; fn(); } };
   fire('creak1', 0.05, () => SFX.doorCreak());
   fire('creak2', 1.15, () => SFX.doorCreak());
-  if (it >= 2.2) introHanAlpha = clamp((it - 2.4) / 1.1, 0, 1);
-  fire('laugh', 2.6, () => SFX.laugh());
-  fire('panC', 3.8, () => { targetYaw = SPEAR_ANG - 360; SFX.whoosh(); }); // -18: seam centered
-  fire('panD', 5.2, () => { targetYaw = 0; SFX.whoosh(); });
-  if (it >= 7.2) endIntro();
+  // Beat B — his lone figure fades as the reflection floods every pane (slow)
+  if (it >= 2.6) introHanAlpha = clamp((it - 2.8) / 1.8, 0, 1);
+  fire('laugh', 3.0, () => SFX.evilLaugh());
+  // Beat D — Bruce's reflection appears; the music swells with him
+  fire('swell', 5.4, () => SFX.introSwell());
+  if (it >= 9.6) endIntro();
 }
 
 // ============================================================
@@ -293,7 +297,7 @@ function renderBrokenBuffer(idx, t) {
   // miss clue — red number in the middle = Han's distance in mirrors
   if (pane.brokenBy === 'miss' && pane.clue > 0) {
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + idx);
-    SPR.text(c, String(pane.clue), PW / 2, PH / 2 - 6, 2,
+    SPR.text(c, clueLabel(pane.clue), PW / 2, PH / 2 - 6, 2,
       `rgba(255,90,100,${0.65 + 0.3 * pulse})`, 'center');
   }
   drawFrame(c, true);
@@ -384,7 +388,7 @@ function resolveStrike() {
     reveal = { pane: i, t: 0, dir: Math.random() < 0.5 ? -1 : 1 };
     setTimeout(() => { SFX.gong(); SFX.hanHurt(); }, 60);
     if (combo >= 2) setTimeout(() => SFX.comboSting(combo), 260);
-    if (hanHP <= 0) { beginVictory(); return; }
+    if (hanHP <= 0) { beginVictory(i); return; }
     // Han always relocates to a random intact pane
     const options = [];
     for (let k = 0; k < NUM; k++) if (panes[k].intact) options.push(k);
@@ -424,22 +428,34 @@ function updateStrike(dt) {
 // ============================================================
 // WIN / LOSE
 // ============================================================
-function beginVictory() {
+// victory unfolds on the mirror we just struck: IMPALE (linger) → REVEAL (the
+// pane revolves, Bruce behind the glass) → TALLY. Phase clock `v.t` resets each phase.
+const IMPALE_T = 3.2, REVEAL_T = 5.2, REVOLUTIONS = 2;
+
+function beginVictory(pane) {
   state = 'victory';
   pendingStrike = null;
+  reveal = null; // the hit-reveal gives way to the impale composition
   const timeBonus = Math.max(0, Math.floor((300 - elapsed)) * 5);
-  // the wall revolves: two full rotations, decelerating onto the spear seam
+  // stay on the mirror we just struck — center the camera there, no wall spin
+  targetYaw = pane * 36;
+  // the other intact panes shatter in a quick cascade at the killing blow
   const remaining = [];
-  for (let i = 0; i < NUM; i++) if (panes[i].intact) remaining.push(i);
+  for (let i = 0; i < NUM; i++) if (i !== pane && panes[i].intact) remaining.push(i);
   victoryAnim = {
-    t: 0, phase: 'spin', timeBonus, total: score + timeBonus,
-    yaw0: yaw,
-    yawEnd: yaw + 720 + ((SPEAR_ANG - yaw) % 360 + 360) % 360,
-    cascade: remaining.map((i, n) => ({ i, at: 0.25 + n * 0.18, done: false })),
+    t: 0, phase: 'impale', pane, timeBonus, total: score + timeBonus,
+    cascade: remaining.map((i, n) => ({ i, at: 0.05 + n * 0.06, done: false })),
   };
   score += timeBonus;
   if (window.track) track('game-won', { score: victoryAnim.total, seconds: Math.floor(elapsed) });
+  // the spear lands
+  FX.hitStop(140);
+  FX.shake.add(0.8);
+  FX.flash.white = 0.9;
+  SFX.impale();
+  SFX.hanDeath();
   SFX.droneStop();
+  SFX.victory(); // triumphant horn the instant Han falls
 }
 
 function beginDefeat() {
@@ -458,42 +474,28 @@ function beginDefeat() {
 function updateVictory(dt) {
   const v = victoryAnim;
   v.t += dt;
-  const SPIN_T = 2.2;
-  if (v.phase === 'spin') {
-    // the mirror wall revolves — ease-out over two full rotations
-    const k = clamp(v.t / SPIN_T, 0, 1);
-    const e = 1 - Math.pow(1 - k, 3);
-    yaw = targetYaw = lerp(v.yaw0, v.yawEnd, e);
-    // remaining panes shatter in cascade while the wall spins
-    for (const c of v.cascade) {
-      if (c.done || v.t < c.at) continue;
-      c.done = true;
-      panes[c.i].intact = false;
-      panes[c.i].brokenBy = 'hit';
-      panes[c.i].jag = genJag(panes[c.i].seed);
-      const q = paneQuads[c.i];
-      if (q) {
-        const qc = quadCenter(q);
-        FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, 30, 0.9);
-      }
-      FX.shake.add(0.25);
-      SFX.shatter(0.55);
+  // the other intact panes shatter in a quick cascade at the killing blow
+  for (const c of v.cascade) {
+    if (c.done || v.t < c.at) continue;
+    c.done = true;
+    panes[c.i].intact = false;
+    panes[c.i].brokenBy = 'hit';
+    panes[c.i].jag = genJag(panes[c.i].seed);
+    const q = paneQuads[c.i];
+    if (q) {
+      const qc = quadCenter(q);
+      FX.spawnShards(qc.x, qc.y, (q.xR - q.xL) * 0.9, qc.h * 0.9, 24, 0.8);
     }
-    if (v.t >= SPIN_T) {
-      // IMPALE — the spin lands Han on the mounted spear
-      v.phase = 'impale';
-      yaw = targetYaw = v.yawEnd;
-      for (const c of v.cascade) { // anything left breaks silently
-        if (!c.done) { c.done = true; panes[c.i].intact = false; panes[c.i].brokenBy = 'hit'; panes[c.i].jag = genJag(panes[c.i].seed); }
-      }
-      FX.hitStop(140);
-      FX.shake.add(0.8);
-      FX.flash.white = 0.9;
-      SFX.impale();
-      setTimeout(() => SFX.gong(), 90);
-    }
-  } else if (v.phase === 'impale' && v.t >= 3.6) {
-    v.phase = 'tally';
+    FX.shake.add(0.2);
+    SFX.shatter(0.5);
+  }
+  if (v.phase === 'impale' && v.t >= IMPALE_T) {
+    // the impaled pane slowly revolves, revealing Bruce behind the glass
+    v.phase = 'reveal'; v.t = 0;
+    SFX.doorCreak();
+    setTimeout(() => SFX.doorCreak(), 1500);
+  } else if (v.phase === 'reveal' && v.t >= REVEAL_T) {
+    v.phase = 'tally'; v.t = 0;
     SFX.victory();
   }
 }
@@ -624,9 +626,6 @@ function drawScene(t) {
     }
   }
 
-  // the wall-mounted spear (Chekhov's gun — planted in the intro, fired at victory)
-  drawSpear(t);
-
   // Han reveal — he really WAS behind that glass
   if (reveal) {
     const q = paneQuads[reveal.pane];
@@ -659,39 +658,105 @@ function fillQuad(q, col, alpha) {
   ctx.globalAlpha = 1;
 }
 
-function drawSpear(t) {
-  const rel = wrap180(SPEAR_ANG - yaw);
-  if (Math.abs(rel) > 115) return;
-  const x = projR(rel);
-  const h = hRot(rel);
-  const sc = h / 190;
-  const buf = SPR.spear[Math.floor(t * 5) % 2]; // pennant flutter
-  const w = SPR.SPEAR_W * sc, hh = SPR.SPEAR_H * sc;
-  ctx.drawImage(buf, Math.round(x - w / 2), Math.round(134 - h / 2 + 30 * sc), w, hh);
+// Han impaled on the last-struck pane. The short spear is drawn diagonally
+// BEHIND him: his torso hides the middle so the shaft juts from one side and
+// the bloodied blade from the other — the through-the-body illusion, contained
+// within the pane. `xs` squashes horizontally for the reveal spin.
+function drawImpaledFigure(cx, yMid, ph, xs, settle) {
+  const fit = Math.min(ph / SPR.HAN_H, 1.35);
+  const rw = SPR.HAN_W * fit, rh = SPR.HAN_H * fit;
+  const yTop = yMid - rh / 2 + rh * 0.06 - 6 + settle * 6;
+  const chestY = yTop + rh * 0.36; // where the spear crosses the torso
+  ctx.save();
+  ctx.translate(cx, 0); ctx.scale(xs, 1);
+  // spear BEHIND Han, on a diagonal (shaft up-left, blade down-right)
+  const sf = fit * 0.95;
+  const sw = SPR.SPEARTHRU_W * sf, sh = SPR.SPEARTHRU_H * sf;
+  const buf = SPR.spearThru[Math.floor(redPulseT * 5) % 2];
+  ctx.save();
+  ctx.translate(0, chestY);
+  ctx.rotate(0.52);                        // ~30° diagonal
+  ctx.drawImage(buf, -sw * 0.52, -sh / 2, sw, sh);
+  ctx.restore();
+  // Han on top — hides the shaft's middle where it passes through him
+  ctx.drawImage(SPR.han.impaled, -rw / 2, yTop, rw, rh);
+  // the wound where it crosses his chest
+  ctx.fillStyle = '#7a0f18'; ctx.fillRect(-4, chestY - 2, 8, 6);
+  ctx.fillStyle = '#a3172a'; ctx.fillRect(-2, chestY - 1, 4, 3);
+  ctx.restore();
 }
 
-// Han pinned to the wall on the spear (victory impale + tally backdrop)
-function drawImpaledHan(v) {
-  const settle = 1 - Math.pow(1 - clamp((v.t - 2.2) / 0.35, 0, 1), 2);
-  const fit = 1.25;
-  const rw = SPR.HAN_W * fit, rh = SPR.HAN_H * fit;
-  const spearY = 134 - 190 / 2 + 30;                     // matches drawSpear at center
-  const spearCy = spearY + SPR.SPEAR_H / 2;
-  const yTop = spearCy - 42 * fit - 10 + settle * 10;    // slides down, settles on the shaft
-  ctx.drawImage(SPR.han.impaled, Math.round(W / 2 - rw / 2), Math.round(yTop), rw, rh);
-  // blade end re-drawn IN FRONT: the spear runs through him
-  const buf = SPR.spear[0];
-  ctx.drawImage(buf, SPR.SPEAR_W - 26, 0, 26, SPR.SPEAR_H,
-    Math.round(W / 2 + SPR.SPEAR_W / 2 - 26), spearY, 26, SPR.SPEAR_H);
+// Bruce revealed behind the glass as the pane turns
+function drawBruceFigure(cx, yMid, ph, xs) {
+  const fit = Math.min(ph / SPR.BRUCE_H, 1.35);
+  const rw = SPR.BRUCE_W * fit, rh = SPR.BRUCE_H * fit;
+  const yTop = yMid - rh / 2 + rh * 0.06;
+  ctx.save();
+  ctx.translate(cx, 0); ctx.scale(xs, 1);
+  ctx.drawImage(SPR.bruce, -rw / 2, yTop, rw, rh);
+  ctx.restore();
+}
+
+// The victory pane on the last-struck mirror: impale hold, reveal spin, tally backdrop.
+function drawVictoryPane(v) {
+  const q = paneQuads[v.pane];
+  if (!q) return;
+  const qc = quadCenter(q);
+  const paneW = q.xR - q.xL;
+  if (v.phase === 'reveal') {
+    const k = clamp(v.t / REVEAL_T, 0, 1);
+    const e = k * k * (3 - 2 * k);               // ease in-out: slow start, slow settle
+    const theta = e * 2 * Math.PI * REVOLUTIONS; // ends front-on (impaled Han)
+    fillQuad(q, '#040207', 1); // dark room behind the turning pane
+    const sx = Math.abs(Math.cos(theta));
+    if (sx * paneW / 2 > 0.6) {
+      if (Math.cos(theta) >= 0) drawImpaledFigure(qc.x, q.yMid, qc.h, sx, 1);
+      else drawBruceFigure(qc.x, q.yMid, qc.h, sx);
+    }
+    return;
+  }
+  // impale + tally: Han held on the spear, a small settle as it lands
+  const settle = 1 - Math.pow(1 - clamp(v.t / 0.35, 0, 1), 2);
+  drawImpaledFigure(qc.x, q.yMid, qc.h, 1, v.phase === 'impale' ? settle : 1);
 }
 
 // ---------- intro cinematic drawing ----------
+// Bruce's taunt, lifted from the film's mirror-room finale.
+const SPEECH = ['YOU HAVE OFFENDED MY FAMILY', 'AND YOU HAVE OFFENDED', 'THE SHAOLIN TEMPLE'];
+
+function drawSpeechBubble(cx, topY, alpha) {
+  const pad = 6, lh = 8, sc = 1;
+  let maxw = 0;
+  for (const s of SPEECH) maxw = Math.max(maxw, SPR.textW(s, sc));
+  const bw = Math.round(maxw + pad * 2), bh = SPEECH.length * lh + pad * 2 - 2;
+  const bx = Math.round(cx - bw / 2), by = Math.round(topY);
+  ctx.globalAlpha = alpha;
+  // rounded body (two overlapping rects fake the corners)
+  ctx.fillStyle = 'rgba(12,10,16,0.9)';
+  ctx.fillRect(bx, by + 2, bw, bh - 4);
+  ctx.fillRect(bx + 2, by, bw - 4, bh);
+  // tail pointing down toward Bruce
+  ctx.fillRect(cx - 3, by + bh - 1, 6, 3);
+  ctx.fillRect(cx - 2, by + bh + 2, 4, 2);
+  ctx.fillRect(cx - 1, by + bh + 4, 2, 2);
+  // gold border
+  ctx.fillStyle = 'rgba(200,180,120,0.85)';
+  ctx.fillRect(bx, by + 2, bw, 1); ctx.fillRect(bx, by + bh - 3, bw, 1);
+  ctx.fillRect(bx + 2, by, bw - 4, 1); ctx.fillRect(bx + 2, by + bh - 1, bw - 4, 1);
+  ctx.fillRect(bx, by + 2, 1, bh - 4); ctx.fillRect(bx + bw - 1, by + 2, 1, bh - 4);
+  // text
+  for (let i = 0; i < SPEECH.length; i++) {
+    SPR.text(ctx, SPEECH[i], cx, by + pad + i * lh - 1, sc, 'rgba(235,225,200,1)', 'center');
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawIntroOverlay(it, t) {
   const q = paneQuads[0]; // the centered pane (mirror 0) is the revolving door
   // Beat A — the panel revolves; Han steps through the dark opening
-  if (it < 2.3 && q) {
+  if (it < 2.6 && q) {
     const qc = quadCenter(q);
-    const k = clamp(it / 2.2, 0, 1);
+    const k = clamp(it / 2.4, 0, 1);
     const e = 1 - Math.pow(1 - k, 3);
     fillQuad(q, '#040207', 1); // doorway blackness behind the spinning panel
     const theta = e * Math.PI * 2;
@@ -703,8 +768,8 @@ function drawIntroOverlay(it, t) {
       if (Math.cos(theta) < 0) fillQuad(dq, '#050308', 0.45); // back face reads darker
     }
   }
-  // Han in the flesh — walks in, then dissolves into the mirrors (beat B)
-  if (it > 0.9 && it < 3.4 && q) {
+  // Han in the flesh — walks in, then slowly dissolves into the mirrors (beat B)
+  if (it > 0.9 && it < 4.6 && q) {
     const qc = quadCenter(q);
     const grow = clamp((it - 0.9) / 1.3, 0, 1);
     const e = 1 - (1 - grow) * (1 - grow);
@@ -712,12 +777,12 @@ function drawIntroOverlay(it, t) {
     const sc = fit * lerp(0.4, 1, e);
     const rw = SPR.HAN_W * sc, rh = SPR.HAN_H * sc;
     let alpha = 1;
-    if (it > 2.3) alpha = clamp(1 - (it - 2.3) / 0.9, 0, 1);
+    if (it > 2.8) alpha = clamp(1 - (it - 2.8) / 1.5, 0, 1);
     ctx.globalAlpha = alpha;
     ctx.drawImage(SPR.han.idle, qc.x - rw / 2, q.yMid - rh / 2 + rh * 0.06, rw, rh);
     ctx.globalAlpha = 1;
   }
-  // Beat D — the glass clears: BRUCE's reflection, and your fists rise
+  // Beat D — the glass clears: BRUCE's reflection holds, and your fists rise
   if (it > 5.4 && q) {
     const k = clamp((it - 5.4) / 0.7, 0, 1);
     fillQuad(q, '#17222e', 0.75 * k);
@@ -734,6 +799,11 @@ function drawIntroOverlay(it, t) {
     const fy = lerp(H + 45, H - 34, e);
     ctx.drawImage(SPR.fistR, 352, fy + Math.sin(t * 2.1 + 1.2) * 2, 46, 39);
     ctx.drawImage(SPR.fistL, 82, fy + Math.sin(t * 2.1) * 2, 46, 39);
+  }
+  // the taunt — fades in with Bruce, clears before gameplay
+  if (it > 5.8) {
+    const a = clamp((it - 5.8) / 0.5, 0, 1) * clamp((9.2 - it) / 0.4, 0, 1);
+    if (a > 0.01) drawSpeechBubble(W / 2, 16, a);
   }
 }
 
@@ -759,6 +829,19 @@ function drawFists(t) {
   if (state !== 'play' && state !== 'victory') return;
   const bobL = Math.sin(t * 2.1) * 2;
   const bobR = Math.sin(t * 2.1 + 1.2) * 2;
+
+  if (state === 'victory') {
+    // Han has fallen — the guard slowly lowers out of view during the impale beat
+    if (victoryAnim.phase !== 'impale') return;   // gone by the reveal spin
+    const e = Math.pow(clamp(victoryAnim.t / 2.0, 0, 1), 1.6); // slow, gentle drop
+    const drop = e * 95;
+    if (drop > 90) return;                          // fully retracted
+    const fade = 1 - e;
+    ctx.drawImage(SPR.fistR, 352, H - 34 + drop + bobR * fade, 46, 39);
+    ctx.drawImage(SPR.fistL, 82, H - 34 + drop + bobL * fade, 46, 39);
+    return;
+  }
+
   // idle guard fists (first-person stance, clear of minimap)
   if (!strike || !strike.fromRight) ctx.drawImage(SPR.fistR, 352, H - 34 + bobR, 46, 39);
   if (!strike || strike.fromRight) ctx.drawImage(SPR.fistL, 82, H - 34 + bobL, 46, 39);
@@ -854,7 +937,7 @@ function drawMinimap(t) {
     } else if (pane.brokenBy === 'miss') {
       ctx.fillStyle = '#57131d';
       ctx.fillRect(dx - 2, dy - 2, 4, 4);
-      SPR.text(ctx, String(pane.clue), dx + (Math.cos(a) > 0.3 ? 5 : Math.cos(a) < -0.3 ? -5 : 0),
+      SPR.text(ctx, clueLabel(pane.clue), dx + (Math.cos(a) > 0.3 ? 5 : Math.cos(a) < -0.3 ? -5 : 0),
         dy + (Math.sin(a) > 0.3 ? 5 : Math.sin(a) < -0.3 ? -8 : -2), 1, '#ff5a64',
         Math.cos(a) > 0.3 ? 'left' : Math.cos(a) < -0.3 ? 'right' : 'center');
     } else {
@@ -934,8 +1017,8 @@ function tallyLine(label, value, y, t, startT, isTime) {
 
 function drawVictory(t) {
   const v = victoryAnim;
-  if (v.t < 3.7) return; // let the spin + impale play out
-  const k = clamp((v.t - 3.7) / 0.5, 0, 1);
+  if (v.phase !== 'tally') return; // let the impale + reveal spin play out first
+  const k = clamp(v.t / 0.5, 0, 1);
   ctx.fillStyle = `rgba(5,2,6,${0.72 * k})`;
   ctx.fillRect(0, 0, W, H);
   const pulse = 1 + Math.sin(t * 3) * 0.02;
@@ -943,7 +1026,7 @@ function drawVictory(t) {
   SPR.text(ctx, 'VICTORY', W / 2 + 3, 62 + 3, scale, '#57131d', 'center');
   SPR.text(ctx, 'VICTORY', W / 2, 62, scale, pulse > 1 ? '#ffe9b0' : '#ffd985', 'center');
   SPR.text(ctx, 'DESTROY THE IMAGE AND YOU WILL BREAK THE ENEMY', W / 2, 100, 1, '#ffd985', 'center');
-  const t2 = v.t - 4.2;
+  const t2 = v.t - 0.5;
   tallyLine('STRIKES', hits, 126, t2, 0, false);
   tallyLine('BEST COMBO', maxCombo, 140, t2, 0.4, false);
   tallyLine('TIME', fmtTime(elapsed), 154, t2, 0.8, true);
@@ -1019,9 +1102,9 @@ function render(t) {
     ctx.translate(strike.cx, strike.cy);
     ctx.scale(z, z);
     ctx.translate(-strike.cx, -strike.cy);
-  } else if (state === 'victory' && victoryAnim.phase !== 'spin') {
-    // impale zoom punch toward the spear
-    const zt = victoryAnim.t - 2.2;
+  } else if (state === 'victory' && victoryAnim.phase === 'impale') {
+    // impale zoom punch as the spear lands
+    const zt = victoryAnim.t;
     let z = 1;
     if (zt < 0.2) z = 1 + (zt / 0.2) * 0.16;
     else z = 1 + Math.max(0, 1 - (zt - 0.2) / 0.7) * 0.16;
@@ -1035,7 +1118,7 @@ function render(t) {
   drawBackground(t);
   drawScene(t);
   FX.drawParts(ctx);
-  if (state === 'victory' && victoryAnim.phase !== 'spin') drawImpaledHan(victoryAnim);
+  if (state === 'victory') drawVictoryPane(victoryAnim);
   drawFists(t);
   ctx.restore();
 
@@ -1105,13 +1188,26 @@ cv.addEventListener('pointerup', e => {
   handleClick(p.x, p.y);
 });
 
+// mouse wheel / trackpad — scroll to look around the ring
+let wheelSnap = null;
+cv.addEventListener('wheel', e => {
+  if (tutorialOpen || state !== 'play') return;
+  e.preventDefault();
+  // trackpad horizontal swipe (deltaX) or a vertical wheel (deltaY); lines→pixels
+  const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  targetYaw += (e.deltaMode === 1 ? raw * 16 : raw) * 0.18;
+  // settle on the nearest mirror once the scrolling stops
+  clearTimeout(wheelSnap);
+  wheelSnap = setTimeout(() => { targetYaw = Math.round(targetYaw / 36) * 36; SFX.uiTick(); }, 130);
+}, { passive: false });
+
 function handleClick(x, y) {
   SFX.init();
   if (tutorialOpen) { tutorialOpen = false; SFX.uiTick(); return; }
   if (clickUIButton(x, y)) return;
   if (state === 'title') { startGame(true); return; }
   if (state === 'intro') { endIntro(); return; }
-  if (state === 'victory' && victoryAnim.t > 6.5) { SFX.uiTick(); startGame(); return; }
+  if (state === 'victory' && victoryAnim.phase === 'tally' && victoryAnim.t > 2.9) { SFX.uiTick(); startGame(); return; }
   if (state === 'defeat' && defeatAnim.t > 2.0) { SFX.uiTick(); startGame(); return; }
   if (state !== 'play' || strike) return;
   const i = hitTestPane(x, y);
@@ -1132,7 +1228,7 @@ window.addEventListener('keydown', e => {
   if (k === 'Enter' || k === ' ') {
     SFX.init();
     if (state === 'title') startGame(true);
-    else if (state === 'victory' && victoryAnim.t > 6.5) startGame();
+    else if (state === 'victory' && victoryAnim.phase === 'tally' && victoryAnim.t > 2.9) startGame();
     else if (state === 'defeat' && defeatAnim.t > 2.0) startGame();
     return;
   }

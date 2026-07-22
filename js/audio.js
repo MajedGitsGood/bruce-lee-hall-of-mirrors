@@ -1,7 +1,7 @@
 'use strict';
 /* Synthesized audio — no external files. Everything built from oscillators + noise. */
 const SFX = (() => {
-  let ac = null, master = null, droneNodes = null;
+  let ac = null, master = null, droneNodes = null, introMusicNodes = null;
   let muted = false;
 
   function init() {
@@ -136,6 +136,27 @@ const SFX = (() => {
     }
   }
 
+  function evilLaugh() { // Han multiplies into every mirror — a long, cold cackle
+    if (!ac) return;
+    const notes = [200, 150, 175, 130, 150, 110, 130, 95];
+    for (let i = 0; i < notes.length; i++) {
+      const t0 = i * 0.17;
+      tone('sawtooth', notes[i], notes[i] * 0.8, 0.14, 0.06, t0);
+      tone('square', notes[i] / 2, notes[i] / 2 * 0.8, 0.12, 0.04, t0);
+    }
+    const tail = notes.length * 0.17;
+    noise(0.8, 0.05, 'bandpass', 500, 200, tail, 1.5); // reverberant hall tail
+    tone('sine', 70, 45, 1.3, 0.08, tail);
+  }
+
+  function hanDeath() { // the spear lands — a dying groan
+    if (!ac) return;
+    tone('sawtooth', 240, 70, 0.9, 0.14);            // pitched-down cry
+    tone('square', 120, 40, 0.9, 0.07, 0.02);
+    noise(0.5, 0.25, 'bandpass', 700, 300, 0.05, 1.2); // gasp
+    tone('sine', 60, 32, 1.1, 0.12, 0.1);            // low collapse
+  }
+
   function uiTick() {
     if (!ac) return;
     tone('square', 880, 880, 0.04, 0.05);
@@ -149,14 +170,18 @@ const SFX = (() => {
     noise(0.1, 0.15, 'bandpass', 800, 1200);
   }
 
-  function victory() {
+  function victory() { // triumphant, sustained horn — plays the instant Han falls
     if (!ac) return;
-    const seq = [392, 523, 659, 784, 1046];
-    seq.forEach((f, i) => {
-      tone('square', f, f, 0.22, 0.09, i * 0.13);
-      tone('triangle', f / 2, f / 2, 0.3, 0.08, i * 0.13);
+    // a rising horn call that lands on a held chord
+    tone('triangle', 220, 220, 0.30, 0.17, 0.00);     // A
+    tone('triangle', 293.7, 293.7, 0.30, 0.17, 0.24);  // D
+    tone('triangle', 329.6, 329.6, 2.0, 0.17, 0.48);   // E — held lead
+    // sustained brass chord underneath (triangle body + a little saw for edge)
+    [110, 164.8, 220, 277.2].forEach((f) => {          // A E A C#
+      tone('triangle', f, f, 2.2, 0.10, 0.48);
+      tone('sawtooth', f, f, 2.2, 0.035, 0.48);
     });
-    gong();
+    tone('sine', 55, 55, 2.4, 0.12, 0.48);             // low root for weight
   }
 
   function defeat() {
@@ -216,11 +241,56 @@ const SFX = (() => {
     droneNodes = null;
   }
 
+  // ---- intro cinematic music bed (melodic pad over the drone) ----
+  function introMusicStart() {
+    if (!ac || introMusicNodes) return;
+    const t = ac.currentTime;
+    const g = ac.createGain(); g.gain.value = 0.0001;
+    g.gain.setTargetAtTime(0.06, t, 1.5);
+    const flt = ac.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 900;
+    // A-minor pad — root, minor third, fifth + a low octave, slightly detuned for width
+    const freqs = [110, 130.8, 164.8, 82.4];
+    const oscs = freqs.map((f, i) => {
+      const o = ac.createOscillator();
+      o.type = i === 3 ? 'sine' : 'triangle';
+      o.frequency.value = f * (i % 2 ? 1.004 : 1);
+      o.connect(flt);
+      return o;
+    });
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.13; // slow swell
+    const lfoG = ac.createGain(); lfoG.gain.value = 0.025;
+    lfo.connect(lfoG); lfoG.connect(g.gain);
+    flt.connect(g); g.connect(master);
+    [...oscs, lfo].forEach(o => o.start(t));
+    introMusicNodes = { g, oscs: [...oscs, lfo] };
+  }
+
+  function introMusicStop() {
+    if (!introMusicNodes) return;
+    const t = ac.currentTime;
+    introMusicNodes.g.gain.setTargetAtTime(0.0001, t, 0.5);
+    const nodes = introMusicNodes;
+    setTimeout(() => nodes.oscs.forEach(o => { try { o.stop(); } catch (e) {} }), 2000);
+    introMusicNodes = null;
+  }
+
+  function introSwell() { // dramatic rising motif as Bruce's reflection appears
+    if (!ac) return;
+    const seq = [220, 261.6, 329.6, 440]; // A C E A — a heroic rise
+    seq.forEach((f, i) => {
+      tone('triangle', f, f, 0.5, 0.10, i * 0.18);
+      tone('square', f, f, 0.4, 0.04, i * 0.18);
+    });
+    tone('sine', 110, 110, 1.6, 0.10, 0.1); // sustaining root underneath
+  }
+
   return {
     init, setMuted, get muted() { return muted; },
     whoosh, impact, shatter, gong, hanHurt, heroHurt, comboSting, kiai,
-    laugh, uiTick, gongStart, victory, defeat, tallyTick,
+    laugh, evilLaugh, hanDeath, uiTick, gongStart, victory, defeat, tallyTick,
     doorCreak, impale,
+    introMusicStart, introMusicStop, introSwell,
     droneStart, droneStop,
   };
 })();

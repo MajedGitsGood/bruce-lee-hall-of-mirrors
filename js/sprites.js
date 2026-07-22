@@ -273,34 +273,42 @@ const SPR = (() => {
   const bruce = makeBruce();
 
   // ============================================================
-  // SPEAR — horizontal wall-mount with yellow/red pennant, 90x18.
-  // Two frames (pennant flutter).
+  // SPEARTHRU — a SHORT spear, drawn on a diagonal BEHIND Han so his
+  // torso hides the middle: the shaft (with pennant) juts from his upper
+  // side and the bloodied blade protrudes from the other, selling the
+  // through-the-body illusion without ever leaving the pane. 88x16, two
+  // frames (pennant flutter). Blade end is bloodied (that side exits him).
   // ============================================================
-  const SPEAR_W = 90, SPEAR_H = 18;
+  const SPEARTHRU_W = 88, SPEARTHRU_H = 16;
 
-  function makeSpear(flap) {
-    const c = canvas(SPEAR_W, SPEAR_H);
+  function makeSpearThru(flap) {
+    const c = canvas(SPEARTHRU_W, SPEARTHRU_H);
     const x = c.getContext('2d');
     const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
-    // shaft
-    px(0, 6, 74, 3, '#6b4423');
-    px(0, 6, 74, 1, '#8a5c33');
-    px(0, 8, 74, 1, '#4a2e14');
-    px(0, 5, 3, 5, '#3a2412');          // butt cap
-    px(64, 5, 4, 5, '#8e1626');         // binding cord
-    // leaf blade pointing right
-    px(74, 6, 10, 3, '#c3ccd4');
-    px(76, 5, 7, 5, '#c3ccd4');
-    px(82, 6, 6, 3, '#f2f8fc');
-    px(88, 7, 2, 1, '#ffffff');         // bright tip
-    // pennant: yellow cloth, red tail, hanging + fluttering
-    px(60, 9, 8, 4, '#e8c33a');
-    px(58 + flap, 12, 7, 3, '#e8c33a');
-    px(56 + flap * 2, 14, 6, 2, '#c22b3d');
-    px(53 + flap * 2, 15 + flap, 5, 2, '#c22b3d');
+    // ---- shaft (butt on the left → toward the body center) ----
+    px(0, 7, 54, 3, '#6b4423');
+    px(0, 7, 54, 1, '#8a5c33');
+    px(0, 9, 54, 1, '#4a2e14');
+    px(0, 6, 3, 5, '#3a2412');          // butt cap
+    px(40, 6, 4, 5, '#8e1626');         // binding cord
+    // ---- pennant near the binding: yellow cloth, red tail, fluttering ----
+    px(30, 10, 8, 3, '#e8c33a');
+    px(28 + flap, 12, 7, 2, '#e8c33a');
+    px(26 + flap, 14, 6, 2, '#c22b3d');
+    // ---- leaf blade (body center → right, where it exits him) ----
+    px(54, 6, 12, 4, '#c3ccd4');
+    px(60, 5, 10, 6, '#c3ccd4');
+    px(70, 6, 10, 4, '#d9e2ea');
+    px(80, 7, 6, 2, '#f2f8fc');
+    px(86, 7, 2, 1, '#ffffff');         // bright tip
+    px(54, 8, 30, 1, '#eef4f8');        // central ridge
+    // ---- blood where the blade leaves the body ----
+    px(54, 6, 9, 4, '#6e0f18');
+    px(57, 6, 6, 3, '#a3172a');
+    px(63, 7, 3, 2, '#8e1626');
     return c;
   }
-  const spear = [makeSpear(0), makeSpear(1)];
+  const spearThru = [makeSpearThru(0), makeSpearThru(1)];
 
   // ============================================================
   // BRUCE fist (first-person strike) — 40x34
@@ -412,7 +420,7 @@ const SPR = (() => {
     text, textW,
     han, HAN_W, HAN_H,
     bruce, BRUCE_W, BRUCE_H,
-    spear, SPEAR_W, SPEAR_H,
+    spearThru, SPEARTHRU_W, SPEARTHRU_H,
     fistR, fistL,
     bruceSil,
     portraitBruce, portraitHan,
